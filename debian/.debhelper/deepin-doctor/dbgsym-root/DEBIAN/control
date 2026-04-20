@@ -1,0 +1,12 @@
+Package: deepin-doctor-dbgsym
+Source: deepin-doctor
+Version: 0.1.0
+Auto-Built-Package: debug-symbols
+Architecture: amd64
+Maintainer: YinJie <yinjie@example.com>
+Installed-Size: 335
+Depends: deepin-doctor (= 0.1.0)
+Section: debug
+Priority: optional
+Description: debug symbols for deepin-doctor
+Build-Ids: 394c5d98f263a042da46691f0256da4f14070248

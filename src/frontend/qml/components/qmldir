@@ -1,0 +1,3 @@
+module components
+ModuleSelector 1.0 ModuleSelector.qml
+ResultView 1.0 ResultView.qml

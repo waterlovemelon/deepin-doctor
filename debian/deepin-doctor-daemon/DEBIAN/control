@@ -1,0 +1,16 @@
+Package: deepin-doctor-daemon
+Source: deepin-doctor
+Version: 0.1.0
+Architecture: amd64
+Maintainer: YinJie <yinjie@example.com>
+Installed-Size: 242
+Depends: libc6 (>= 2.34), libgcc-s1 (>= 3.0), libqt5core5a (>= 5.15.1), libqt5dbus5 (>= 5.0.2), libstdc++6 (>= 5)
+Section: utils
+Priority: optional
+Description: Deepin System Diagnostic Tool - Backend Daemon
+ deepin-doctor-daemon is the backend service for the deepin-doctor
+ system diagnostic tool. It runs with system privileges to perform
+ diagnostics and apply fixes.
+ .
+ This package provides the system daemon that handles privileged
+ operations via D-Bus interface.

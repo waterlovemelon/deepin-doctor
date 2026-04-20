@@ -1,0 +1,15 @@
+Package: deepin-doctor
+Version: 0.1.0
+Architecture: amd64
+Maintainer: YinJie <yinjie@example.com>
+Installed-Size: 56
+Depends: libc6 (>= 2.34), libgcc-s1 (>= 3.0), libqt5core5a (>= 5.15.1), libqt5dbus5 (>= 5.14.1), libqt5gui5 (>= 5.0.2) | libqt5gui5-gles (>= 5.0.2), libqt5qml5 (>= 5.1.0), libstdc++6 (>= 5), deepin-doctor-daemon (= 0.1.0), qml-module-qtquick2 | qt6-quick-private-dev, qml-module-qtquick-controls2 | qt6-quickcontrols2-dev, qml-module-qtquick-layouts | qt6-quicklayouts-dev, qml-module-qtquick-window2 | qt6-quickwindow-dev
+Section: utils
+Priority: optional
+Description: Deepin System Diagnostic Tool - Frontend GUI
+ deepin-doctor is a comprehensive system diagnostic tool for Deepin OS.
+ It provides a user-friendly graphical interface to diagnose and fix
+ common system issues, including network problems, system errors,
+ and environment configuration issues.
+ .
+ This package provides the Qt Quick based frontend GUI application.

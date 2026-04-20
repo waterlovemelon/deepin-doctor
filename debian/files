@@ -1,0 +1,5 @@
+deepin-doctor-daemon-dbgsym_0.1.0_amd64.deb debug optional automatic=yes
+deepin-doctor-daemon_0.1.0_amd64.deb utils optional
+deepin-doctor-dbgsym_0.1.0_amd64.deb debug optional automatic=yes
+deepin-doctor_0.1.0_amd64.buildinfo utils optional
+deepin-doctor_0.1.0_amd64.deb utils optional

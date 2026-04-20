@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48">
+  <!-- Background circle -->
+  <circle cx="24" cy="24" r="22" fill="#0066cc"/>
+
+  <!-- Medical cross -->
+  <rect x="20" y="12" width="8" height="24" rx="1" fill="white"/>
+  <rect x="12" y="20" width="24" height="8" rx="1" fill="white"/>
+
+  <!-- Heartbeat line -->
+  <path d="M 10 24 L 16 24 L 19 20 L 22 28 L 25 16 L 28 24 L 38 24"
+        stroke="#ff6b6b" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

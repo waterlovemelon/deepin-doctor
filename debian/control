@@ -1,0 +1,46 @@
+Source: deepin-doctor
+Section: utils
+Priority: optional
+Maintainer: YinJie <yinjie@example.com>
+Build-Depends:
+ debhelper-compat (= 13),
+ cmake,
+ pkg-config,
+ qtbase5-dev | qt6-base-dev,
+ qtdeclarative5-dev | qt6-declarative-dev,
+ qtquickcontrols2-5-dev | qt6-quickcontrols2-dev,
+ libqt5dbus5 | libqt6dbus6
+Standards-Version: 4.6.2
+Rules-Requires-Root: no
+
+Package: deepin-doctor
+Architecture: any
+Depends:
+ ${misc:Depends},
+ ${shlibs:Depends},
+ deepin-doctor-daemon (= ${binary:Version}),
+ qml-module-qtquick2 | qt6-quick-private-dev,
+ qml-module-qtquick-controls2 | qt6-quickcontrols2-dev,
+ qml-module-qtquick-layouts | qt6-quicklayouts-dev,
+ qml-module-qtquick-window2 | qt6-quickwindow-dev
+Description: Deepin System Diagnostic Tool - Frontend GUI
+ deepin-doctor is a comprehensive system diagnostic tool for Deepin OS.
+ It provides a user-friendly graphical interface to diagnose and fix
+ common system issues, including network problems, system errors,
+ and environment configuration issues.
+ .
+ This package provides the Qt Quick based frontend GUI application.
+
+Package: deepin-doctor-daemon
+Architecture: any
+Depends:
+ ${misc:Depends},
+ ${shlibs:Depends},
+ libqt5dbus5 | libqt6dbus6
+Description: Deepin System Diagnostic Tool - Backend Daemon
+ deepin-doctor-daemon is the backend service for the deepin-doctor
+ system diagnostic tool. It runs with system privileges to perform
+ diagnostics and apply fixes.
+ .
+ This package provides the system daemon that handles privileged
+ operations via D-Bus interface.

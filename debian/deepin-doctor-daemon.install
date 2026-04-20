@@ -1,0 +1,2 @@
+usr/libexec/deepin-doctor/deepin-doctor-daemon
+etc/dbus-1/system.d/com.deepin.Doctor.conf

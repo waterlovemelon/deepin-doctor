@@ -1,0 +1,9 @@
+deepin-doctor (0.1.0) unstable; urgency=medium
+
+  * Initial release
+  * Frontend GUI application for system diagnostics
+  * Backend daemon for privileged operations
+  * Support for network, system, and environment diagnostics
+  * D-Bus interface for secure communication
+
+ -- YinJie <yinjie@example.com>  Thu, 17 Apr 2026 10:00:00 +0800

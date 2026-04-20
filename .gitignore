@@ -1,0 +1,11 @@
+build/
+*.o
+*.moc
+*.moc.cpp
+*.qrc.cpp
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+*.so
+*.a
