@@ -394,6 +394,70 @@ void SystemModule::collectSystemLogs(QJsonObject& result)
         }
     }
 
+    // syslog (if exists)
+    QFile syslogFile("/var/log/syslog");
+    if (syslogFile.exists()) {
+        if (syslogFile.size() < 2 * 1024 * 1024) { // Only if < 2MB
+            if (syslogFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
+                QTextStream in(&syslogFile);
+                QStringList allLines = in.readAll().split('\n');
+                syslogFile.close();
+                // Last 500 lines
+                QStringList lastLines = allLines.mid(qMax(0, allLines.size() - 500));
+                result["syslog"] = lastLines.join('\n');
+            }
+        } else {
+            // Read last 500 lines efficiently
+            if (syslogFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
+                QTextStream in(&syslogFile);
+                in.seek(qMax(0LL, syslogFile.size() - 100 * 1024)); // Read last 100KB
+                result["syslog"] = in.readAll();
+                syslogFile.close();
+            }
+        }
+    }
+
+    // kern.log (if exists)
+    QFile kernlogFile("/var/log/kern.log");
+    if (kernlogFile.exists()) {
+        if (kernlogFile.size() < 2 * 1024 * 1024) {
+            if (kernlogFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
+                QTextStream in(&kernlogFile);
+                QStringList allLines = in.readAll().split('\n');
+                kernlogFile.close();
+                QStringList lastLines = allLines.mid(qMax(0, allLines.size() - 500));
+                result["kern_log"] = lastLines.join('\n');
+            }
+        }
+    }
+
+    // Wayland compositor log
+    QString waylandLogDir = QDir::homePath() + "/.local/share/wayland";
+    QDir waylandDir(waylandLogDir);
+    if (waylandDir.exists()) {
+        QStringList waylandLogs = waylandDir.entryList(QStringList() << "*.log", QDir::Files);
+        QJsonObject waylandLogData;
+        for (const QString& logFile : waylandLogs) {
+            QFile file(waylandDir.filePath(logFile));
+            if (file.size() < 512 * 1024) {
+                if (file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+                    QTextStream in(&file);
+                    waylandLogData[logFile] = in.readAll();
+                    file.close();
+                }
+            }
+        }
+        if (!waylandLogData.isEmpty()) {
+            result["wayland_logs"] = waylandLogData;
+        }
+    }
+
+    // Check XDG_SESSION_TYPE to note if running Wayland
+    QString sessionType = qEnvironmentVariable("XDG_SESSION_TYPE");
+    if (!sessionType.isEmpty()) {
+        result["session_type"] = sessionType;
+    }
+
     // DDE logs
     QDir ddeLogDir(QDir::homePath() + "/.cache/deepin");
     if (ddeLogDir.exists()) {
