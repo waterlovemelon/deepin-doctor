@@ -15,6 +15,7 @@ private slots:
     void testModuleMetadata();
     void testProgressTracking();
     void testCancelOperation();
+    void testUpdateInterruptionDetection();
 };
 
 void EnvironmentModuleTest::testCollectReturnsValidJson()
@@ -183,6 +184,21 @@ void EnvironmentModuleTest::testCancelOperation()
     // Cancel should set running to false
     module.cancel();
     QVERIFY(!module.isRunning());
+}
+
+void EnvironmentModuleTest::testUpdateInterruptionDetection()
+{
+    DeepinDoctor::EnvironmentModule module;
+    QList<DeepinDoctor::Issue> issues = module.detect();
+
+    for (const DeepinDoctor::Issue& issue : issues) {
+        if (issue.title.contains("half-installed", Qt::CaseInsensitive) ||
+            issue.title.contains("dpkg lock", Qt::CaseInsensitive)) {
+            QVERIFY(issue.level == DeepinDoctor::Issue::Error ||
+                    issue.level == DeepinDoctor::Issue::Warning);
+            QVERIFY(!issue.solution.isEmpty());
+        }
+    }
 }
 
 QTEST_MAIN(EnvironmentModuleTest)

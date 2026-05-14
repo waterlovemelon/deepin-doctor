@@ -57,6 +57,7 @@ QList<Issue> EnvironmentModule::detect()
     issues.append(detectServiceIssues());
     issues.append(detectConfigIssues());
     issues.append(detectEnvVarIssues());
+    issues.append(detectUpdateInterruption());
 
     return issues;
 }
@@ -866,6 +867,115 @@ QList<Issue> EnvironmentModule::detectEnvVarIssues()
                                 .arg(lang).arg(lcAll);
         issue.solution = "Ensure LANG and LC_ALL are consistent, or unset LC_ALL if you want LANG to take effect";
         issues.append(issue);
+    }
+
+    return issues;
+}
+
+QList<Issue> EnvironmentModule::detectUpdateInterruption()
+{
+    QList<Issue> issues;
+
+    QProcess process;
+
+    // Check dpkg for packages in half-installed / config-files state
+    process.start("dpkg", QStringList() << "-l");
+    process.waitForFinished(10000);
+    QString dpkgOutput = process.readAllStandardOutput();
+
+    QStringList halfInstalled;
+    QStringList needsConfig;
+    QStringList lines = dpkgOutput.split('\n');
+    for (const QString& line : lines) {
+        if (line.startsWith("iU") || line.startsWith("iF")) {
+            // iU = half-installed, unpacked; iF = half-installed, config-files
+            QStringList parts = line.split(QRegExp("\\s+"), Qt::SkipEmptyParts);
+            if (parts.size() >= 2) {
+                halfInstalled.append(parts[1]);
+            }
+        }
+        if (line.startsWith("cF")) {
+            // cF = config-files, failed config
+            QStringList parts = line.split(QRegExp("\\s+"), Qt::SkipEmptyParts);
+            if (parts.size() >= 2) {
+                needsConfig.append(parts[1]);
+            }
+        }
+    }
+
+    if (!halfInstalled.isEmpty()) {
+        Issue issue;
+        issue.level = Issue::Error;
+        issue.title = "Packages in half-installed state";
+        issue.description = QString("Found %1 packages that are partially installed, indicating an interrupted update:\n%2")
+            .arg(halfInstalled.size())
+            .arg(halfInstalled.mid(0, 10).join(", "));
+        issue.solution = "Run: sudo dpkg --configure -a && sudo apt-get install -f";
+        issues.append(issue);
+    }
+
+    if (!needsConfig.isEmpty()) {
+        Issue issue;
+        issue.level = Issue::Warning;
+        issue.title = "Packages need configuration";
+        issue.description = QString("Found %1 packages that need to be configured:\n%2")
+            .arg(needsConfig.size())
+            .arg(needsConfig.mid(0, 10).join(", "));
+        issue.solution = "Run: sudo dpkg --configure -a";
+        issues.append(issue);
+    }
+
+    // Check if dpkg is in an inconsistent state
+    QFile dpkgStatus("/var/lib/dpkg/status");
+    if (dpkgStatus.exists()) {
+        // Check for lock file held too long (might indicate a crashed update)
+        QFile lockFile("/var/lib/dpkg/lock");
+        if (lockFile.exists()) {
+            QProcess fuser;
+            fuser.start("fuser", QStringList() << "/var/lib/dpkg/lock");
+            fuser.waitForFinished(5000);
+            QString holder = fuser.readAllStandardOutput().trimmed();
+            if (!holder.isEmpty()) {
+                // Check how long the process has been running
+                QStringList pids = holder.split(QRegExp("\\s+"), Qt::SkipEmptyParts);
+                for (const QString& pid : pids) {
+                    QProcess uptime;
+                    uptime.start("ps", QStringList() << "-o" << "etime=" << "-p" << pid.trimmed());
+                    uptime.waitForFinished(3000);
+                    QString elapsed = uptime.readAllStandardOutput().trimmed();
+                    if (!elapsed.isEmpty()) {
+                        // Parse elapsed time (format: [[dd-]hh:]mm:ss)
+                        QStringList timeParts = elapsed.split(':');
+                        int totalMinutes = 0;
+                        if (timeParts.size() == 3) {
+                            // hh:mm:ss or dd-hh:mm:ss
+                            QString hoursPart = timeParts[0];
+                            if (hoursPart.contains('-')) {
+                                QStringList dayParts = hoursPart.split('-');
+                                totalMinutes += dayParts[0].toInt() * 1440;
+                                totalMinutes += dayParts[1].toInt() * 60;
+                            } else {
+                                totalMinutes += hoursPart.toInt() * 60;
+                            }
+                            totalMinutes += timeParts[1].toInt();
+                        } else if (timeParts.size() == 2) {
+                            totalMinutes = timeParts[0].toInt();
+                        }
+
+                        if (totalMinutes > 30) {
+                            Issue issue;
+                            issue.level = Issue::Warning;
+                            issue.title = "dpkg lock held for extended time";
+                            issue.description = QString("dpkg lock file has been held by PID %1 for %2 minutes, "
+                                                       "which may indicate a crashed package manager")
+                                .arg(pid.trimmed()).arg(totalMinutes);
+                            issue.solution = "If no package operation is running, run: sudo rm /var/lib/dpkg/lock && sudo dpkg --configure -a";
+                            issues.append(issue);
+                        }
+                    }
+                }
+            }
+        }
     }
 
     return issues;
