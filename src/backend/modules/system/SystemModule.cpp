@@ -79,6 +79,35 @@ void SystemModule::collectHardwareInfo(QJsonObject& result)
         result["cpu_cores"] = cpuCores;
     }
 
+    // CPU usage from /proc/stat
+    QFile cpuStat("/proc/stat");
+    if (cpuStat.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        QTextStream cpuIn(&cpuStat);
+        QString cpuLine = cpuIn.readLine(); // First line: cpu  user nice system idle ...
+        cpuStat.close();
+
+        QStringList cpuParts = cpuLine.split(QRegExp("\\s+"), Qt::SkipEmptyParts);
+        if (cpuParts.size() >= 5) {
+            // cpuParts[0] = "cpu", [1]=user, [2]=nice, [3]=system, [4]=idle
+            qlonglong user = cpuParts[1].toLongLong();
+            qlonglong nice = cpuParts[2].toLongLong();
+            qlonglong system = cpuParts[3].toLongLong();
+            qlonglong idle = cpuParts[4].toLongLong();
+            qlonglong total = user + nice + system + idle;
+
+            result["cpu_user_jiffies"] = user;
+            result["cpu_system_jiffies"] = system;
+            result["cpu_idle_jiffies"] = idle;
+            result["cpu_total_jiffies"] = total;
+
+            // Usage percentage (snapshot, not over time)
+            if (total > 0) {
+                double usage = (total - idle) * 100.0 / total;
+                result["cpu_usage_percent"] = usage;
+            }
+        }
+    }
+
     // Memory info
     QFile memInfo("/proc/meminfo");
     if (memInfo.open(QIODevice::ReadOnly | QIODevice::Text)) {
@@ -118,6 +147,32 @@ void SystemModule::collectHardwareInfo(QJsonObject& result)
             result["disk_used"] = parts[2];
             result["disk_available"] = parts[3];
             result["disk_usage_percent"] = parts[4].replace('%', "");
+        }
+    }
+
+    // Disk IO stats from /proc/diskstats
+    QFile diskStats("/proc/diskstats");
+    if (diskStats.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        QTextStream dsIn(&diskStats);
+        QString dsContent = dsIn.readAll();
+        diskStats.close();
+
+        // Parse for the root device (sda or vda)
+        QStringList dsLines = dsContent.split('\n');
+        for (const QString& line : dsLines) {
+            if (line.contains(" sda ") || line.contains(" vda ") ||
+                line.contains(" nvme0n1 ")) {
+                QStringList parts = line.trimmed().split(QRegExp("\\s+"));
+                if (parts.size() >= 14) {
+                    QJsonObject ioInfo;
+                    ioInfo["reads_completed"] = parts[3].toLongLong();
+                    ioInfo["sectors_read"] = parts[5].toLongLong();
+                    ioInfo["writes_completed"] = parts[7].toLongLong();
+                    ioInfo["sectors_written"] = parts[9].toLongLong();
+                    result["disk_io"] = ioInfo;
+                }
+                break;
+            }
         }
     }
 
