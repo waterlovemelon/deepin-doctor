@@ -55,6 +55,9 @@ QList<Issue> NetworkModule::detect()
     auto pluginIssues = detectMissingPlugins();
     issues.append(pluginIssues);
 
+    auto dnsResIssues = detectDNSResolution();
+    issues.append(dnsResIssues);
+
     return issues;
 }
 
@@ -253,6 +256,81 @@ QList<Issue> NetworkModule::detectMissingPlugins()
             issue.description = "No network plugin found in /usr/lib/dde-control-center/modules";
             issue.solution = "Install dde-control-center network module";
             issues.append(issue);
+        }
+    }
+
+    return issues;
+}
+
+QList<Issue> NetworkModule::detectDNSResolution()
+{
+    QList<Issue> issues;
+
+    // Read DNS servers from resolv.conf
+    QFile resolvConf("/etc/resolv.conf");
+    QStringList dnsServers;
+    if (resolvConf.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        QTextStream in(&resolvConf);
+        QStringList lines = in.readAll().split('\n');
+        resolvConf.close();
+
+        for (const QString& line : lines) {
+            if (line.startsWith("nameserver")) {
+                QStringList parts = line.split(' ', Qt::SkipEmptyParts);
+                if (parts.size() >= 2) {
+                    dnsServers.append(parts[1]);
+                }
+            }
+        }
+    }
+
+    if (dnsServers.isEmpty()) {
+        return issues;
+    }
+
+    // Test DNS resolution using dig (or nslookup as fallback)
+    QProcess process;
+    process.start("which", QStringList() << "dig");
+    process.waitForFinished(3000);
+    bool hasDig = process.exitCode() == 0;
+
+    QString testDomain = "www.deepin.org";
+
+    if (hasDig) {
+        for (const QString& server : dnsServers) {
+            process.start("dig", QStringList() << "+short" << "+time=3" << "+tries=1"
+                          << ("@" + server) << testDomain << "A");
+            process.waitForFinished(10000);
+            QString output = process.readAllStandardOutput().trimmed();
+            int exitCode = process.exitCode();
+
+            if (exitCode != 0 || output.isEmpty()) {
+                Issue issue;
+                issue.level = Issue::Warning;
+                issue.title = QString("DNS resolution failed: %1").arg(server);
+                issue.description = QString("Cannot resolve %1 via DNS server %2")
+                    .arg(testDomain).arg(server);
+                issue.solution = "Check DNS server configuration or network connectivity";
+                issues.append(issue);
+            }
+        }
+    } else {
+        // Fallback to nslookup
+        for (const QString& server : dnsServers) {
+            process.start("nslookup", QStringList() << "-timeout=3" << testDomain << server);
+            process.waitForFinished(10000);
+            QString output = process.readAllStandardOutput();
+            int exitCode = process.exitCode();
+
+            if (exitCode != 0 || output.contains("server can't find")) {
+                Issue issue;
+                issue.level = Issue::Warning;
+                issue.title = QString("DNS resolution failed: %1").arg(server);
+                issue.description = QString("Cannot resolve %1 via DNS server %2")
+                    .arg(testDomain).arg(server);
+                issue.solution = "Check DNS server configuration or network connectivity";
+                issues.append(issue);
+            }
         }
     }
 

@@ -31,6 +31,7 @@ private:
     QList<Issue> detectDNSIssues();
     QList<Issue> detectConnectivityIssues();
     QList<Issue> detectMissingPlugins();
+    QList<Issue> detectDNSResolution();
 
     bool m_running = false;
     float m_progress = 0.0;

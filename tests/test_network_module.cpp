@@ -15,6 +15,7 @@ private slots:
     void testModuleMetadata();
     void testProgressTracking();
     void testCancelOperation();
+    void testDNSResolutionDetection();
 };
 
 void NetworkModuleTest::testCollectReturnsValidJson()
@@ -158,6 +159,23 @@ void NetworkModuleTest::testCancelOperation()
     // Cancel should set running to false
     module.cancel();
     QVERIFY(!module.isRunning());
+}
+
+void NetworkModuleTest::testDNSResolutionDetection()
+{
+    DeepinDoctor::NetworkModule module;
+
+    QList<DeepinDoctor::Issue> issues = module.detect();
+
+    // DNS resolution check is environment-dependent
+    // Just verify it doesn't crash and returns valid issues
+    for (const DeepinDoctor::Issue& issue : issues) {
+        if (issue.title.contains("DNS resolution", Qt::CaseInsensitive)) {
+            QVERIFY(issue.level == DeepinDoctor::Issue::Warning ||
+                    issue.level == DeepinDoctor::Issue::Error);
+            QVERIFY(!issue.solution.isEmpty());
+        }
+    }
 }
 
 QTEST_MAIN(NetworkModuleTest)
