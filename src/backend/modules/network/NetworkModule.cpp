@@ -58,6 +58,9 @@ QList<Issue> NetworkModule::detect()
     auto dnsResIssues = detectDNSResolution();
     issues.append(dnsResIssues);
 
+    auto ipConflictIssues = detectIPConflict();
+    issues.append(ipConflictIssues);
+
     return issues;
 }
 
@@ -331,6 +334,82 @@ QList<Issue> NetworkModule::detectDNSResolution()
                 issue.solution = "Check DNS server configuration or network connectivity";
                 issues.append(issue);
             }
+        }
+    }
+
+    return issues;
+}
+
+QList<Issue> NetworkModule::detectIPConflict()
+{
+    QList<Issue> issues;
+
+    // Get local IP addresses
+    QProcess process;
+    process.start("ip", QStringList() << "-4" << "addr" << "show");
+    process.waitForFinished(5000);
+    QString addrOutput = process.readAllStandardOutput();
+
+    QStringList localIPs;
+    QStringList lines = addrOutput.split('\n');
+    for (const QString& line : lines) {
+        if (line.contains("inet ") && !line.contains("127.0.0.1")) {
+            QStringList parts = line.trimmed().split(QRegExp("\\s+"));
+            for (const QString& part : parts) {
+                if (part.contains("/")) {
+                    localIPs.append(part.split('/').first());
+                }
+            }
+        }
+    }
+
+    if (localIPs.isEmpty()) {
+        return issues;
+    }
+
+    // Check if arping is available
+    process.start("which", QStringList() << "arping");
+    process.waitForFinished(3000);
+    bool hasArping = process.exitCode() == 0;
+
+    if (!hasArping) {
+        return issues;
+    }
+
+    // Get default interface
+    process.start("ip", QStringList() << "route" << "show" << "default");
+    process.waitForFinished(5000);
+    QString routeOutput = process.readAllStandardOutput().trimmed();
+    QString iface;
+    if (routeOutput.contains("dev")) {
+        QStringList parts = routeOutput.split(QRegExp("\\s+"));
+        int devIdx = parts.indexOf("dev");
+        if (devIdx >= 0 && devIdx + 1 < parts.size()) {
+            iface = parts[devIdx + 1];
+        }
+    }
+
+    // Use arping to detect duplicate IPs on local network
+    for (const QString& ip : localIPs) {
+        QStringList args;
+        args << "-c" << "1" << "-w" << "2";
+        if (!iface.isEmpty()) {
+            args << "-I" << iface;
+        }
+        args << ip;
+
+        process.start("arping", args);
+        process.waitForFinished(10000);
+        QString output = process.readAllStandardOutput();
+
+        // arping returns multiple replies if there's a conflict
+        if (output.contains("Duplicate")) {
+            Issue issue;
+            issue.level = Issue::Error;
+            issue.title = QString("IP conflict detected: %1").arg(ip);
+            issue.description = QString("IP address %1 is used by multiple devices on the network").arg(ip);
+            issue.solution = "Change the IP address or resolve the conflict with the other device";
+            issues.append(issue);
         }
     }
 

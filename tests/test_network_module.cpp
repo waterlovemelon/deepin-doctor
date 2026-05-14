@@ -16,6 +16,7 @@ private slots:
     void testProgressTracking();
     void testCancelOperation();
     void testDNSResolutionDetection();
+    void testIPConflictDetection();
 };
 
 void NetworkModuleTest::testCollectReturnsValidJson()
@@ -173,6 +174,20 @@ void NetworkModuleTest::testDNSResolutionDetection()
         if (issue.title.contains("DNS resolution", Qt::CaseInsensitive)) {
             QVERIFY(issue.level == DeepinDoctor::Issue::Warning ||
                     issue.level == DeepinDoctor::Issue::Error);
+            QVERIFY(!issue.solution.isEmpty());
+        }
+    }
+}
+
+void NetworkModuleTest::testIPConflictDetection()
+{
+    DeepinDoctor::NetworkModule module;
+    QList<DeepinDoctor::Issue> issues = module.detect();
+
+    // IP conflict check is environment-dependent, just verify no crash
+    for (const DeepinDoctor::Issue& issue : issues) {
+        if (issue.title.contains("IP conflict", Qt::CaseInsensitive)) {
+            QCOMPARE(issue.level, DeepinDoctor::Issue::Error);
             QVERIFY(!issue.solution.isEmpty());
         }
     }

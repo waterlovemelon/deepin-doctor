@@ -32,6 +32,7 @@ private:
     QList<Issue> detectConnectivityIssues();
     QList<Issue> detectMissingPlugins();
     QList<Issue> detectDNSResolution();
+    QList<Issue> detectIPConflict();
 
     bool m_running = false;
     float m_progress = 0.0;
