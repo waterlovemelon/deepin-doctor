@@ -132,6 +132,12 @@ void SystemModuleTest::testSystemInfoCollection()
     QVERIFY(days >= 0);
     QVERIFY(hours >= 0 && hours < 24);
     QVERIFY(minutes >= 0 && minutes < 60);
+
+    // Verify component versions are collected
+    QVERIFY(system.contains("component_versions"));
+    QJsonObject components = system["component_versions"].toObject();
+    // At least glibc should be detectable on any Linux system
+    QVERIFY(components.contains("glibc") || components.contains("systemd"));
 }
 
 void SystemModuleTest::testJsonFieldsExist()

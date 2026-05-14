@@ -255,6 +255,58 @@ void SystemModule::collectSystemInfo(QJsonObject& result)
     }
 
     result["package_versions"] = packageVersions;
+
+    // Collect key component versions
+    QJsonObject componentVersions;
+
+    // glibc version
+    process.start("ldd", QStringList() << "--version");
+    process.waitForFinished(5000);
+    QString lddOutput = process.readAllStandardOutput();
+    if (!lddOutput.isEmpty()) {
+        QStringList lddLines = lddOutput.split('\n');
+        if (!lddLines.isEmpty()) {
+            componentVersions["glibc"] = lddLines.first().trimmed();
+        }
+    }
+
+    // systemd version
+    process.start("systemctl", QStringList() << "--version");
+    process.waitForFinished(5000);
+    QString systemdOutput = process.readAllStandardOutput();
+    if (!systemdOutput.isEmpty()) {
+        QStringList systemdLines = systemdOutput.split('\n');
+        if (!systemdLines.isEmpty()) {
+            componentVersions["systemd"] = systemdLines.first().trimmed();
+        }
+    }
+
+    // GCC version
+    process.start("gcc", QStringList() << "--version");
+    process.waitForFinished(5000);
+    QString gccOutput = process.readAllStandardOutput();
+    if (!gccOutput.isEmpty()) {
+        QStringList gccLines = gccOutput.split('\n');
+        if (!gccLines.isEmpty()) {
+            componentVersions["gcc"] = gccLines.first().trimmed();
+        }
+    }
+
+    // Xorg version
+    process.start("Xorg", QStringList() << "-version");
+    process.waitForFinished(5000);
+    QString xorgOutput = process.readAllStandardError(); // Xorg prints version to stderr
+    if (!xorgOutput.isEmpty()) {
+        QStringList xorgLines = xorgOutput.split('\n');
+        for (const QString& line : xorgLines) {
+            if (line.contains("X.Org")) {
+                componentVersions["xorg"] = line.trimmed();
+                break;
+            }
+        }
+    }
+
+    result["component_versions"] = componentVersions;
 }
 
 void SystemModule::collectSystemLogs(QJsonObject& result)
