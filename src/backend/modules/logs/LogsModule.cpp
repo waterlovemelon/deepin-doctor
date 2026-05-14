@@ -89,7 +89,7 @@ void LogsModule::collectApplicationLogs(QJsonObject& result)
         QString logs = process.readAllStandardOutput();
 
         if (!logs.isEmpty()) {
-            result[app] = logs;
+            result[app] = maskSensitiveInfo(logs);
         }
     }
 
@@ -105,7 +105,7 @@ void LogsModule::collectApplicationLogs(QJsonObject& result)
             QString content = readLogFile(logFile, 300);
             if (!content.isEmpty()) {
                 QFileInfo info(logFile);
-                deepinLogs[info.fileName()] = content;
+                deepinLogs[info.fileName()] = maskSensitiveInfo(content);
             }
         }
 
@@ -130,7 +130,7 @@ void LogsModule::collectApplicationLogs(QJsonObject& result)
                     QString content = readLogFile(logFile, 200);
                     if (!content.isEmpty()) {
                         QFileInfo info(logFile);
-                        appLogs[info.fileName()] = content;
+                        appLogs[info.fileName()] = maskSensitiveInfo(content);
                     }
                 }
                 userAppLogs[appDir] = appLogs;
@@ -164,7 +164,7 @@ void LogsModule::collectServiceLogs(QJsonObject& result)
         QString logs = process.readAllStandardOutput();
 
         if (!logs.isEmpty()) {
-            result[service] = logs;
+            result[service] = maskSensitiveInfo(logs);
         }
     }
 
@@ -182,7 +182,7 @@ void LogsModule::collectServiceLogs(QJsonObject& result)
         QString logs = process.readAllStandardOutput();
 
         if (!logs.isEmpty()) {
-            result[service] = logs;
+            result[service] = maskSensitiveInfo(logs);
         }
     }
 }
@@ -226,7 +226,7 @@ void LogsModule::collectCrashReports(QJsonObject& result)
     QString coredumpList = process.readAllStandardOutput();
 
     if (!coredumpList.isEmpty()) {
-        result["coredump_list"] = coredumpList;
+        result["coredump_list"] = maskSensitiveInfo(coredumpList);
     }
 
     // User crash reports in ~/.local/share/sentry
@@ -325,6 +325,31 @@ QString LogsModule::filterByTimeRange(const QString& logContent, int hoursBack)
     }
 
     return filteredLines.join('\n');
+}
+
+QString LogsModule::maskSensitiveInfo(const QString& content)
+{
+    QString masked = content;
+
+    // Mask password-like patterns (password=xxx, passwd=xxx, pwd=xxx)
+    masked.replace(QRegularExpression("(password|passwd|pwd|secret|token|api_key|apikey)\\s*[=:]\\s*\\S+",
+                   QRegularExpression::CaseInsensitiveOption),
+                   "\\1=***REDACTED***");
+
+    // Mask connection strings with passwords (e.g., postgresql://user:pass@host)
+    masked.replace(QRegularExpression("(://[^:]+:)[^@]+(@)"),
+                   "\\1***REDACTED***\\2");
+
+    // Mask SSH private key content
+    masked.replace(QRegularExpression("-----BEGIN (RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----[\\s\\S]*?-----END (RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----"),
+                   "-----BEGIN PRIVATE KEY-----\n***REDACTED***\n-----END PRIVATE KEY-----");
+
+    // Mask environment variables with sensitive names
+    masked.replace(QRegularExpression("((?:export\\s+)?(?:DB_PASSWORD|DATABASE_PASSWORD|MYSQL_PWD|PGPASSWORD|AWS_SECRET_ACCESS_KEY|SECRET_KEY)=)\\S+",
+                   QRegularExpression::CaseInsensitiveOption),
+                   "\\1***REDACTED***");
+
+    return masked;
 }
 
 } // namespace DeepinDoctor

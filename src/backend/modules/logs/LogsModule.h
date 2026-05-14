@@ -30,6 +30,7 @@ private:
     QString readLogFile(const QString& path, int maxLines = 500);
     QStringList findLogFiles(const QString& dir, const QString& pattern);
     QString filterByTimeRange(const QString& logContent, int hoursBack);
+    QString maskSensitiveInfo(const QString& content);
 
     bool m_running = false;
     float m_progress = 0.0;

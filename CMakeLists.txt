@@ -198,6 +198,11 @@ add_deepin_doctor_test(test_module_manager
     ${CMAKE_CURRENT_SOURCE_DIR}/src/backend/modules/environment/EnvironmentModule.cpp
 )
 
+add_deepin_doctor_test(test_logs_module
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_logs_module.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/backend/modules/logs/LogsModule.cpp
+)
+
 # Plugins
 add_subdirectory(src/plugins)
 
