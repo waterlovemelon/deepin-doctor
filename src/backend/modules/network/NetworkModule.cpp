@@ -64,6 +64,9 @@ QList<Issue> NetworkModule::detect()
     auto driverIssues = detectDriverIssues();
     issues.append(driverIssues);
 
+    auto fwIssues = detectFirewallIssues();
+    issues.append(fwIssues);
+
     return issues;
 }
 
@@ -493,6 +496,67 @@ QList<Issue> NetworkModule::detectDriverIssues()
                     issues.append(issue);
                 }
             }
+        }
+    }
+
+    return issues;
+}
+
+QList<Issue> NetworkModule::detectFirewallIssues()
+{
+    QList<Issue> issues;
+
+    QProcess process;
+
+    // Check iptables for restrictive rules
+    process.start("which", QStringList() << "iptables");
+    process.waitForFinished(3000);
+    bool hasIptables = process.exitCode() == 0;
+
+    if (hasIptables) {
+        process.start("iptables", QStringList() << "-L" << "OUTPUT" << "-n");
+        process.waitForFinished(5000);
+        QString output = process.readAllStandardOutput();
+
+        // Check if default OUTPUT policy is DROP
+        if (output.contains("policy DROP")) {
+            Issue issue;
+            issue.level = Issue::Warning;
+            issue.title = "Restrictive outbound firewall";
+            issue.description = "iptables OUTPUT chain default policy is DROP, which may block outbound connections";
+            issue.solution = "Review firewall rules: sudo iptables -L OUTPUT -n";
+            issues.append(issue);
+        }
+
+        // Check for DNS blocking rules (port 53)
+        if (output.contains("53") && output.contains("DROP")) {
+            Issue issue;
+            issue.level = Issue::Warning;
+            issue.title = "DNS traffic may be blocked by firewall";
+            issue.description = "Found firewall rules that may block DNS traffic on port 53";
+            issue.solution = "Review firewall rules for port 53: sudo iptables -L -n | grep 53";
+            issues.append(issue);
+        }
+    }
+
+    // Check nftables
+    process.start("which", QStringList() << "nft");
+    process.waitForFinished(3000);
+    bool hasNft = process.exitCode() == 0;
+
+    if (hasNft) {
+        process.start("nft", QStringList() << "list" << "ruleset");
+        process.waitForFinished(5000);
+        QString output = process.readAllStandardOutput();
+
+        if (!output.isEmpty() && output.contains("drop", Qt::CaseInsensitive)) {
+            // Just note that nftables rules exist with drops
+            Issue issue;
+            issue.level = Issue::Info;
+            issue.title = "nftables rules with drop policies found";
+            issue.description = "System has nftables rules that include drop policies";
+            issue.solution = "Review nftables rules: sudo nft list ruleset";
+            issues.append(issue);
         }
     }
 

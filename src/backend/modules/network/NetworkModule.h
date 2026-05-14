@@ -34,6 +34,7 @@ private:
     QList<Issue> detectDNSResolution();
     QList<Issue> detectIPConflict();
     QList<Issue> detectDriverIssues();
+    QList<Issue> detectFirewallIssues();
 
     bool m_running = false;
     float m_progress = 0.0;

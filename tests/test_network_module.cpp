@@ -18,6 +18,7 @@ private slots:
     void testDNSResolutionDetection();
     void testIPConflictDetection();
     void testDriverIssueDetection();
+    void testFirewallDetection();
 };
 
 void NetworkModuleTest::testCollectReturnsValidJson()
@@ -202,6 +203,20 @@ void NetworkModuleTest::testDriverIssueDetection()
     for (const DeepinDoctor::Issue& issue : issues) {
         if (issue.title.contains("driver", Qt::CaseInsensitive) ||
             issue.title.contains("link down", Qt::CaseInsensitive)) {
+            QVERIFY(issue.level == DeepinDoctor::Issue::Warning ||
+                    issue.level == DeepinDoctor::Issue::Info);
+        }
+    }
+}
+
+void NetworkModuleTest::testFirewallDetection()
+{
+    DeepinDoctor::NetworkModule module;
+    QList<DeepinDoctor::Issue> issues = module.detect();
+
+    for (const DeepinDoctor::Issue& issue : issues) {
+        if (issue.title.contains("firewall", Qt::CaseInsensitive) ||
+            issue.title.contains("nftables", Qt::CaseInsensitive)) {
             QVERIFY(issue.level == DeepinDoctor::Issue::Warning ||
                     issue.level == DeepinDoctor::Issue::Info);
         }
