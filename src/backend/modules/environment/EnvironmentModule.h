@@ -37,6 +37,8 @@ private:
     QList<Issue> detectConfigIssues();
     QList<Issue> detectEnvVarIssues();
     QList<Issue> detectUpdateInterruption();
+    QList<Issue> detectUserConfigIssues();
+    QList<Issue> detectServiceConfigIssues();
 
     bool m_running = false;
     float m_progress = 0.0;

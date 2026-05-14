@@ -58,6 +58,8 @@ QList<Issue> EnvironmentModule::detect()
     issues.append(detectConfigIssues());
     issues.append(detectEnvVarIssues());
     issues.append(detectUpdateInterruption());
+    issues.append(detectUserConfigIssues());
+    issues.append(detectServiceConfigIssues());
 
     return issues;
 }
@@ -972,6 +974,121 @@ QList<Issue> EnvironmentModule::detectUpdateInterruption()
                             issue.solution = "If no package operation is running, run: sudo rm /var/lib/dpkg/lock && sudo dpkg --configure -a";
                             issues.append(issue);
                         }
+                    }
+                }
+            }
+        }
+    }
+
+    return issues;
+}
+
+QList<Issue> EnvironmentModule::detectUserConfigIssues()
+{
+    QList<Issue> issues;
+
+    // Check browser config directories
+    QStringList browserConfigs = {
+        QDir::homePath() + "/.config/google-chrome",
+        QDir::homePath() + "/.config/chromium",
+        QDir::homePath() + "/.mozilla/firefox"
+    };
+
+    for (const QString& configDir : browserConfigs) {
+        QDir dir(configDir);
+        if (dir.exists()) {
+            QFileInfo info(configDir);
+            if (!info.isReadable() || !info.isWritable()) {
+                Issue issue;
+                issue.level = Issue::Warning;
+                issue.title = QString("Browser config permission issue: %1").arg(QFileInfo(configDir).fileName());
+                issue.description = QString("Config directory %1 has incorrect permissions").arg(configDir);
+                issue.solution = QString("Fix permissions: chmod -R 700 %1").arg(configDir);
+                issues.append(issue);
+            }
+        }
+    }
+
+    // Check desktop file associations
+    QString mimeDir = QDir::homePath() + "/.local/share/applications";
+    QDir dir(mimeDir);
+    if (dir.exists()) {
+        QStringList desktopFiles = dir.entryList(QStringList() << "*.desktop", QDir::Files);
+        for (const QString& file : desktopFiles) {
+            QFile desktopFile(dir.filePath(file));
+            if (desktopFile.open(QIODevice::ReadOnly)) {
+                QString content = desktopFile.readAll();
+                desktopFile.close();
+                if (!content.contains("[Desktop Entry]")) {
+                    Issue issue;
+                    issue.level = Issue::Info;
+                    issue.title = QString("Invalid desktop file: %1").arg(file);
+                    issue.description = QString("Desktop file %1 is missing [Desktop Entry] section").arg(file);
+                    issue.solution = "Fix or remove the invalid desktop file";
+                    issues.append(issue);
+                }
+            }
+        }
+    }
+
+    return issues;
+}
+
+QList<Issue> EnvironmentModule::detectServiceConfigIssues()
+{
+    QList<Issue> issues;
+
+    QProcess process;
+
+    // Check for masked services that should be running
+    QStringList criticalServices = {
+        "dbus.service",
+        "systemd-logind.service",
+        "NetworkManager.service"
+    };
+
+    for (const QString& service : criticalServices) {
+        process.start("systemctl", QStringList() << "is-enabled" << service);
+        process.waitForFinished(5000);
+        QString status = process.readAllStandardOutput().trimmed();
+
+        if (status == "masked") {
+            Issue issue;
+            issue.level = Issue::Error;
+            issue.title = QString("Critical service masked: %1").arg(service);
+            issue.description = QString("Service %1 is masked and cannot start").arg(service);
+            issue.solution = QString("Unmask service: sudo systemctl unmask %1").arg(service);
+            issues.append(issue);
+        }
+    }
+
+    // Check for services in infinite restart loops
+    process.start("systemctl", QStringList() << "list-units" << "--state=failed" << "--no-legend");
+    process.waitForFinished(10000);
+    QString failedOutput = process.readAllStandardOutput();
+
+    if (!failedOutput.isEmpty()) {
+        QStringList lines = failedOutput.split('\n', Qt::SkipEmptyParts);
+        for (const QString& line : lines) {
+            QStringList parts = line.split(QRegExp("\\s+"), Qt::SkipEmptyParts);
+            if (parts.size() >= 1) {
+                QString serviceName = parts[0];
+
+                // Check restart count
+                process.start("systemctl", QStringList() << "show" << serviceName
+                              << "--property=NRestarts");
+                process.waitForFinished(5000);
+                QString restartInfo = process.readAllStandardOutput().trimmed();
+
+                if (restartInfo.contains("=")) {
+                    int restarts = restartInfo.split('=').last().toInt();
+                    if (restarts > 10) {
+                        Issue issue;
+                        issue.level = Issue::Warning;
+                        issue.title = QString("Service restart loop: %1").arg(serviceName);
+                        issue.description = QString("Service %1 has restarted %2 times").arg(serviceName).arg(restarts);
+                        issue.solution = QString("Check service logs: journalctl -u %1").arg(serviceName);
+                        issues.append(issue);
                     }
                 }
             }

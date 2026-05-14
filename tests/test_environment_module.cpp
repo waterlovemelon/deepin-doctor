@@ -16,6 +16,8 @@ private slots:
     void testProgressTracking();
     void testCancelOperation();
     void testUpdateInterruptionDetection();
+    void testUserConfigDetection();
+    void testServiceConfigDetection();
 };
 
 void EnvironmentModuleTest::testCollectReturnsValidJson()
@@ -197,6 +199,34 @@ void EnvironmentModuleTest::testUpdateInterruptionDetection()
             QVERIFY(issue.level == DeepinDoctor::Issue::Error ||
                     issue.level == DeepinDoctor::Issue::Warning);
             QVERIFY(!issue.solution.isEmpty());
+        }
+    }
+}
+
+void EnvironmentModuleTest::testUserConfigDetection()
+{
+    DeepinDoctor::EnvironmentModule module;
+    QList<DeepinDoctor::Issue> issues = module.detect();
+
+    // Just verify it doesn't crash and returns valid issues
+    for (const DeepinDoctor::Issue& issue : issues) {
+        if (issue.title.contains("desktop file", Qt::CaseInsensitive) ||
+            issue.title.contains("browser config", Qt::CaseInsensitive)) {
+            QVERIFY(!issue.solution.isEmpty());
+        }
+    }
+}
+
+void EnvironmentModuleTest::testServiceConfigDetection()
+{
+    DeepinDoctor::EnvironmentModule module;
+    QList<DeepinDoctor::Issue> issues = module.detect();
+
+    for (const DeepinDoctor::Issue& issue : issues) {
+        if (issue.title.contains("masked", Qt::CaseInsensitive) ||
+            issue.title.contains("restart loop", Qt::CaseInsensitive)) {
+            QVERIFY(issue.level == DeepinDoctor::Issue::Error ||
+                    issue.level == DeepinDoctor::Issue::Warning);
         }
     }
 }
