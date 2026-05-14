@@ -29,6 +29,7 @@ private:
 
     QString readLogFile(const QString& path, int maxLines = 500);
     QStringList findLogFiles(const QString& dir, const QString& pattern);
+    QString filterByTimeRange(const QString& logContent, int hoursBack);
 
     bool m_running = false;
     float m_progress = 0.0;

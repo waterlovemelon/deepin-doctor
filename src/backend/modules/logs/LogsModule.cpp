@@ -7,6 +7,8 @@
 #include <QJsonArray>
 #include <QTextStream>
 #include <QStandardPaths>
+#include <QDateTime>
+#include <QRegularExpression>
 
 namespace DeepinDoctor {
 
@@ -81,7 +83,8 @@ void LogsModule::collectApplicationLogs(QJsonObject& result)
 
     QProcess process;
     for (const QString& app : ddeApps) {
-        process.start("journalctl", QStringList() << "-u" << app << "-n" << "200" << "--no-pager");
+        // Use --since to limit log range (last 24 hours by default)
+        process.start("journalctl", QStringList() << "-u" << app << "-n" << "200" << "--no-pager" << "--since" << "24 hours ago");
         process.waitForFinished(10000);
         QString logs = process.readAllStandardOutput();
 
@@ -155,7 +158,8 @@ void LogsModule::collectServiceLogs(QJsonObject& result)
     };
 
     for (const QString& service : services) {
-        process.start("journalctl", QStringList() << "-u" << service << "-n" << "100" << "--no-pager");
+        // Use --since to limit log range (last 24 hours by default)
+        process.start("journalctl", QStringList() << "-u" << service << "-n" << "100" << "--no-pager" << "--since" << "24 hours ago");
         process.waitForFinished(10000);
         QString logs = process.readAllStandardOutput();
 
@@ -172,7 +176,8 @@ void LogsModule::collectServiceLogs(QJsonObject& result)
     };
 
     for (const QString& service : deepinServices) {
-        process.start("journalctl", QStringList() << "-u" << service << "-n" << "100" << "--no-pager");
+        // Use --since to limit log range (last 24 hours by default)
+        process.start("journalctl", QStringList() << "-u" << service << "-n" << "100" << "--no-pager" << "--since" << "24 hours ago");
         process.waitForFinished(10000);
         QString logs = process.readAllStandardOutput();
 
@@ -270,6 +275,56 @@ QStringList LogsModule::findLogFiles(const QString& dir, const QString& pattern)
     }
 
     return result;
+}
+
+QString LogsModule::filterByTimeRange(const QString& logContent, int hoursBack)
+{
+    QDateTime cutoff = QDateTime::currentDateTime().addSecs(-hoursBack * 3600);
+    QStringList filteredLines;
+
+    QStringList lines = logContent.split('\n');
+    for (const QString& line : lines) {
+        // Try to parse the timestamp from common log formats
+        bool keep = true;
+
+        // Try ISO format (2026-05-14T10:30:00)
+        QRegularExpression isoRe("(\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2})");
+        QRegularExpressionMatch isoMatch = isoRe.match(line);
+        if (isoMatch.hasMatch()) {
+            QDateTime logTime = QDateTime::fromString(isoMatch.captured(1), Qt::ISODate);
+            if (logTime.isValid() && logTime < cutoff) {
+                keep = false;
+            }
+        }
+
+        // Try syslog format (May 14 10:30:00)
+        QRegularExpression syslogRe("(\\w{3})\\s+(\\d{1,2})\\s+(\\d{2}:\\d{2}:\\d{2})");
+        QRegularExpressionMatch syslogMatch = syslogRe.match(line);
+        if (syslogMatch.hasMatch() && !isoMatch.hasMatch()) {
+            QString month = syslogMatch.captured(1);
+            int day = syslogMatch.captured(2).toInt();
+            QString time = syslogMatch.captured(3);
+
+            // Build date string for current year
+            QDate logDate = QDate::currentDate();
+            int monthNum = QDate::fromString(month, "MMM").month();
+            if (monthNum > 0) {
+                logDate = QDate(QDate::currentDate().year(), monthNum, day);
+            }
+
+            QDateTime logTime = QDateTime::fromString(
+                logDate.toString("yyyy-MM-dd") + " " + time, "yyyy-MM-dd HH:mm:ss");
+            if (logTime.isValid() && logTime < cutoff) {
+                keep = false;
+            }
+        }
+
+        if (keep) {
+            filteredLines.append(line);
+        }
+    }
+
+    return filteredLines.join('\n');
 }
 
 } // namespace DeepinDoctor
