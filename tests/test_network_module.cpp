@@ -17,6 +17,7 @@ private slots:
     void testCancelOperation();
     void testDNSResolutionDetection();
     void testIPConflictDetection();
+    void testDriverIssueDetection();
 };
 
 void NetworkModuleTest::testCollectReturnsValidJson()
@@ -189,6 +190,20 @@ void NetworkModuleTest::testIPConflictDetection()
         if (issue.title.contains("IP conflict", Qt::CaseInsensitive)) {
             QCOMPARE(issue.level, DeepinDoctor::Issue::Error);
             QVERIFY(!issue.solution.isEmpty());
+        }
+    }
+}
+
+void NetworkModuleTest::testDriverIssueDetection()
+{
+    DeepinDoctor::NetworkModule module;
+    QList<DeepinDoctor::Issue> issues = module.detect();
+
+    for (const DeepinDoctor::Issue& issue : issues) {
+        if (issue.title.contains("driver", Qt::CaseInsensitive) ||
+            issue.title.contains("link down", Qt::CaseInsensitive)) {
+            QVERIFY(issue.level == DeepinDoctor::Issue::Warning ||
+                    issue.level == DeepinDoctor::Issue::Info);
         }
     }
 }

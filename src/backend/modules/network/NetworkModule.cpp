@@ -61,6 +61,9 @@ QList<Issue> NetworkModule::detect()
     auto ipConflictIssues = detectIPConflict();
     issues.append(ipConflictIssues);
 
+    auto driverIssues = detectDriverIssues();
+    issues.append(driverIssues);
+
     return issues;
 }
 
@@ -410,6 +413,86 @@ QList<Issue> NetworkModule::detectIPConflict()
             issue.description = QString("IP address %1 is used by multiple devices on the network").arg(ip);
             issue.solution = "Change the IP address or resolve the conflict with the other device";
             issues.append(issue);
+        }
+    }
+
+    return issues;
+}
+
+QList<Issue> NetworkModule::detectDriverIssues()
+{
+    QList<Issue> issues;
+
+    QProcess process;
+
+    // Check dmesg for network driver errors
+    process.start("dmesg", QStringList());
+    process.waitForFinished(5000);
+    QString dmesgOutput = process.readAllStandardOutput();
+
+    QStringList errorPatterns = {
+        "firmware failed",
+        "driver crashed",
+        "link is down",
+        "reset adapter",
+        "hardware error",
+        "PHY",
+        "timeout"
+    };
+
+    QStringList driverErrors;
+    QStringList lines = dmesgOutput.split('\n');
+    for (const QString& line : lines) {
+        if (line.contains("eth", Qt::CaseInsensitive) ||
+            line.contains("enp", Qt::CaseInsensitive) ||
+            line.contains("wlp", Qt::CaseInsensitive) ||
+            line.contains("wlan", Qt::CaseInsensitive) ||
+            line.contains("network", Qt::CaseInsensitive)) {
+
+            for (const QString& pattern : errorPatterns) {
+                if (line.contains(pattern, Qt::CaseInsensitive)) {
+                    driverErrors.append(line.trimmed());
+                    break;
+                }
+            }
+        }
+    }
+
+    if (!driverErrors.isEmpty()) {
+        Issue issue;
+        issue.level = Issue::Warning;
+        issue.title = "Network driver errors detected";
+        issue.description = QString("Found %1 network driver related errors in dmesg:\n%2")
+            .arg(driverErrors.size())
+            .arg(driverErrors.mid(0, 5).join("\n"));
+        issue.solution = "Check NIC hardware, update drivers, or replace the network adapter";
+        issues.append(issue);
+    }
+
+    // Check link status for each interface
+    process.start("ip", QStringList() << "link" << "show");
+    process.waitForFinished(5000);
+    QString linkOutput = process.readAllStandardOutput();
+
+    QStringList linkLines = linkOutput.split('\n');
+    QString currentIface;
+    for (const QString& line : linkLines) {
+        if (line.contains(": <")) {
+            QStringList parts = line.split(':');
+            if (parts.size() >= 2) {
+                currentIface = parts[1].trimmed().split('@').first().trimmed();
+            }
+            if (currentIface != "lo" && !line.contains("LOWER_UP")) {
+                // Interface exists but link is not up
+                if (!currentIface.isEmpty()) {
+                    Issue issue;
+                    issue.level = Issue::Info;
+                    issue.title = QString("Interface link down: %1").arg(currentIface);
+                    issue.description = QString("Network interface %1 does not have link up").arg(currentIface);
+                    issue.solution = "Check cable connection or WiFi signal";
+                    issues.append(issue);
+                }
+            }
         }
     }
 
