@@ -14,7 +14,16 @@ NC='\033[0m' # No Color
 
 # 项目根目录
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-BUILD_DIR="$PROJECT_ROOT/build"
+
+# 自动检测构建目录（优先使用 obj-x86_64-linux-gnu，其次 build）
+if [ -d "$PROJECT_ROOT/obj-x86_64-linux-gnu" ] && [ -f "$PROJECT_ROOT/obj-x86_64-linux-gnu/Makefile" ]; then
+    BUILD_DIR="$PROJECT_ROOT/obj-x86_64-linux-gnu"
+elif [ -d "$PROJECT_ROOT/build" ] && [ -f "$PROJECT_ROOT/build/Makefile" ]; then
+    BUILD_DIR="$PROJECT_ROOT/build"
+else
+    BUILD_DIR="$PROJECT_ROOT/obj-x86_64-linux-gnu"
+fi
+
 DAEMON_LOG="/tmp/deepin-doctor-daemon.log"
 
 # 打印带颜色的消息
@@ -70,8 +79,16 @@ build() {
 
     cd "$PROJECT_ROOT"
 
-    if [ ! -d "$BUILD_DIR" ]; then
-        mkdir -p "$BUILD_DIR"
+    # 如果 obj-x86_64-linux-gnu 存在且有 Makefile，使用它
+    if [ -d "$PROJECT_ROOT/obj-x86_64-linux-gnu" ] && [ -f "$PROJECT_ROOT/obj-x86_64-linux-gnu/Makefile" ]; then
+        BUILD_DIR="$PROJECT_ROOT/obj-x86_64-linux-gnu"
+        print_info "使用已有的构建目录: $BUILD_DIR"
+    else
+        # 否则创建 build 目录
+        BUILD_DIR="$PROJECT_ROOT/build"
+        if [ ! -d "$BUILD_DIR" ]; then
+            mkdir -p "$BUILD_DIR"
+        fi
     fi
 
     cd "$BUILD_DIR"
@@ -93,7 +110,12 @@ build() {
 # 清理构建
 clean() {
     print_info "清理构建目录..."
-    rm -rf "$BUILD_DIR"
+    if [ -d "$PROJECT_ROOT/obj-x86_64-linux-gnu" ]; then
+        rm -rf "$PROJECT_ROOT/obj-x86_64-linux-gnu"
+    fi
+    if [ -d "$PROJECT_ROOT/build" ]; then
+        rm -rf "$PROJECT_ROOT/build"
+    fi
     print_success "清理完成"
 }
 
@@ -216,16 +238,24 @@ status() {
     echo "=== deepin-doctor 状态 ==="
     echo ""
 
+    # 检测构建目录
+    local active_build_dir=""
+    if [ -d "$PROJECT_ROOT/obj-x86_64-linux-gnu" ] && [ -f "$PROJECT_ROOT/obj-x86_64-linux-gnu/Makefile" ]; then
+        active_build_dir="$PROJECT_ROOT/obj-x86_64-linux-gnu"
+    elif [ -d "$PROJECT_ROOT/build" ] && [ -f "$PROJECT_ROOT/build/Makefile" ]; then
+        active_build_dir="$PROJECT_ROOT/build"
+    fi
+
     # 项目状态
-    if [ -d "$BUILD_DIR" ]; then
-        echo -e "构建目录: ${GREEN}存在${NC}"
-        if [ -f "$BUILD_DIR/deepin-doctor" ]; then
-            echo -e "前端: ${GREEN}已构建${NC} ($(ls -lh $BUILD_DIR/deepin-doctor | awk '{print $5}'))"
+    if [ -n "$active_build_dir" ]; then
+        echo -e "构建目录: ${GREEN}$active_build_dir${NC}"
+        if [ -f "$active_build_dir/deepin-doctor" ]; then
+            echo -e "前端: ${GREEN}已构建${NC} ($(ls -lh $active_build_dir/deepin-doctor | awk '{print $5}'))"
         else
             echo -e "前端: ${RED}未构建${NC}"
         fi
-        if [ -f "$BUILD_DIR/deepin-doctor-daemon" ]; then
-            echo -e "后端: ${GREEN}已构建${NC} ($(ls -lh $BUILD_DIR/deepin-doctor-daemon | awk '{print $5}'))"
+        if [ -f "$active_build_dir/deepin-doctor-daemon" ]; then
+            echo -e "后端: ${GREEN}已构建${NC} ($(ls -lh $active_build_dir/deepin-doctor-daemon | awk '{print $5}'))"
         else
             echo -e "后端: ${RED}未构建${NC}"
         fi

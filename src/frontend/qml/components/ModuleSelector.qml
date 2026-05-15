@@ -5,241 +5,87 @@ import QtQuick.Layouts 1.15
 Item {
     id: root
 
-    property var selectedModules: []
-    property var allModules: []
-    property bool allSelected: false
-    property var moduleDescriptions: ({})
-    property var recommendedModuleIds: ["network", "system", "logs"]
+    // The currently active (selected) module id
+    property string activeModule: ""
 
-    signal selectionChanged(var modules)
+    // Array of module objects: {id, name, icon, desc, status}
+    //   id     - string module identifier (e.g. "network")
+    //   name   - display name (e.g. "Network")
+    //   icon   - emoji icon (e.g. "🌐")
+    //   desc   - short description
+    //   status - optional string: "ready", "planned", etc.
+    property var modules: []
 
-    implicitHeight: layout.implicitHeight
+    signal moduleClicked(string moduleId)
 
-    ColumnLayout {
-        id: layout
-        anchors.left: parent.left
-        anchors.right: parent.right
-        spacing: 12
+    ListView {
+        id: listView
+        anchors.fill: parent
+        clip: true
+        spacing: 4
+        model: modules
 
-        RowLayout {
-            Layout.fillWidth: true
-            spacing: 8
+        delegate: Rectangle {
+            id: delegateItem
+            width: listView.width
+            height: 56
+            radius: 8
+            color: isActive ? mainWindow.accentColor : mouseArea.containsMouse ? mainWindow.surfaceColor : "transparent"
 
-            Label {
-                text: qsTr("Modules")
-                font.pixelSize: 13
-                font.bold: true
-                color: mainWindow.mutedTextColor
-            }
+            property bool isActive: modelData.id === root.activeModule
 
-            Item { Layout.fillWidth: true }
-
-            Label {
-                text: qsTr("%1 selected").arg(selectedModules.length)
-                font.pixelSize: 12
-                color: mainWindow.accentColor
-            }
-        }
-
-        RowLayout {
-            Layout.fillWidth: true
-            spacing: 8
-
-            Button {
-                text: qsTr("All")
-                font.pixelSize: 11
-                padding: 4
-                onClicked: selectAll()
-            }
-
-            Button {
-                text: qsTr("None")
-                font.pixelSize: 11
-                padding: 4
-                onClicked: deselectAll()
-            }
-
-            Item { Layout.fillWidth: true }
-
-            Button {
-                text: qsTr("Recommended")
-                font.pixelSize: 11
-                padding: 4
-                onClicked: selectRecommended()
-            }
-        }
-
-        Rectangle {
-            Layout.fillWidth: true
-            Layout.preferredHeight: moduleListView.contentHeight + 16
-            color: Qt.rgba(0, 0, 0, 0)
-            radius: mainWindow.radiusMd
-            border.color: mainWindow.borderColor
-            border.width: 1
-
-            ListView {
-                id: moduleListView
+            MouseArea {
+                id: mouseArea
                 anchors.fill: parent
-                anchors.margins: 6
-                clip: true
-                spacing: 4
-                model: allModules
-                interactive: contentHeight > parent.height
-
-                delegate: moduleCardDelegate
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onClicked: root.moduleClicked(modelData.id)
             }
-        }
-    }
 
-    Component {
-        id: moduleCardDelegate
-
-        Rectangle {
-            width: moduleListView.width
-            implicitHeight: cardLayout.implicitHeight + 14
-            radius: mainWindow.radiusSm
-            color: isSelected
-                    ? Qt.rgba(86 / 255, 179 / 255, 255 / 255, 0.12)
-                    : Qt.rgba(24 / 255, 35 / 255, 59 / 255, 0.6)
-            border.color: isSelected ? mainWindow.accentColor : "transparent"
-            border.width: 1
-            clip: true
-
-            readonly property bool isSelected: selectedModules.indexOf(modelData) !== -1
-
-            ColumnLayout {
-                id: cardLayout
+            RowLayout {
                 anchors.fill: parent
-                anchors.margins: 10
-                spacing: 4
+                anchors.leftMargin: 10
+                anchors.rightMargin: 10
+                spacing: 10
 
-                RowLayout {
+                // Icon box
+                Rectangle {
+                    Layout.preferredWidth: 32
+                    Layout.preferredHeight: 32
+                    radius: 6
+                    color: isActive ? Qt.rgba(1, 1, 1, 0.2) : mainWindow.elevatedSurfaceColor
+
+                    Label {
+                        anchors.centerIn: parent
+                        text: modelData.icon || ""
+                        font.pixelSize: 16
+                    }
+                }
+
+                // Name + description
+                ColumnLayout {
                     Layout.fillWidth: true
-                    spacing: 10
+                    spacing: 2
 
-                    Rectangle {
-                        Layout.preferredWidth: 36
-                        Layout.preferredHeight: 36
-                        radius: mainWindow.radiusSm
-                        color: isSelected
-                                ? Qt.rgba(86 / 255, 179 / 255, 255 / 255, 0.18)
-                                : mainWindow.elevatedSurfaceColor
-                        border.color: isSelected ? mainWindow.accentColor : mainWindow.borderColor
-                        border.width: 1
-
-                        Label {
-                            anchors.centerIn: parent
-                            text: (modelData || "").charAt(0).toUpperCase()
-                            font.pixelSize: 16
-                            font.bold: true
-                            color: isSelected ? mainWindow.accentColor : mainWindow.mutedTextColor
-                        }
-                    }
-
-                    ColumnLayout {
+                    Label {
+                        text: modelData.name || modelData.id || ""
+                        font.pixelSize: 13
+                        font.bold: true
+                        color: isActive ? "#ffffff" : mainWindow.textColor
+                        elide: Text.ElideRight
                         Layout.fillWidth: true
-                        spacing: 2
-
-                        Label {
-                            text: modelData || ""
-                            font.pixelSize: 13
-                            font.bold: true
-                            color: mainWindow.textColor
-                            elide: Text.ElideRight
-                        }
-
-                        Label {
-                            text: moduleDescriptions[modelData] || getDefaultDescription(modelData)
-                            font.pixelSize: 11
-                            color: mainWindow.mutedTextColor
-                            elide: Text.ElideRight
-                            wrapMode: Text.NoWrap
-                        }
                     }
 
-                    Rectangle {
-                        Layout.preferredWidth: 20
-                        Layout.preferredHeight: 20
-                        radius: 10
-                        color: isSelected ? mainWindow.accentColor : mainWindow.elevatedSurfaceColor
-                        border.color: isSelected ? mainWindow.accentColor : mainWindow.borderColor
-                        border.width: 1
-
-                        Label {
-                            anchors.centerIn: parent
-                            text: isSelected ? "\u2713" : ""
-                            font.pixelSize: 12
-                            color: "#ffffff"
-                            font.bold: true
-                        }
+                    Label {
+                        text: modelData.desc || ""
+                        font.pixelSize: 11
+                        color: isActive ? Qt.rgba(1, 1, 1, 0.75) : mainWindow.mutedTextColor
+                        elide: Text.ElideRight
+                        Layout.fillWidth: true
+                        visible: text !== ""
                     }
                 }
             }
-
-            MouseArea {
-                anchors.fill: parent
-                cursorShape: Qt.PointingHandCursor
-                onClicked: toggleModule(modelData)
-            }
         }
-    }
-
-    function getDefaultDescription(moduleName) {
-        var descMap = {
-            "network": qsTr("Interfaces, routes, DNS, connectivity"),
-            "system": qsTr("OS version, kernel, hostname, uptime"),
-            "environment": qsTr("Environment variables and locale"),
-            "logs": qsTr("System and application logs")
-        }
-        return descMap[moduleName] || qsTr("System diagnostics module")
-    }
-
-    function setModules(modules) {
-        allModules = modules.slice()
-        selectedModules = modules.slice()
-        moduleListView.model = modules
-        allSelected = (modules.length > 0)
-        root.selectionChanged(selectedModules)
-    }
-
-    function toggleModule(moduleName) {
-        var nextSelection = selectedModules.slice()
-        var idx = nextSelection.indexOf(moduleName)
-        if (idx === -1) {
-            nextSelection.push(moduleName)
-        } else {
-            nextSelection.splice(idx, 1)
-        }
-        selectedModules = nextSelection
-        allSelected = (selectedModules.length === allModules.length)
-        moduleListView.model = []
-        moduleListView.model = allModules
-        root.selectionChanged(selectedModules)
-    }
-
-    function selectAll() {
-        selectedModules = allModules.slice()
-        allSelected = true
-        moduleListView.model = []
-        moduleListView.model = allModules
-        root.selectionChanged(selectedModules)
-    }
-
-    function deselectAll() {
-        selectedModules = []
-        allSelected = false
-        moduleListView.model = []
-        moduleListView.model = allModules
-        root.selectionChanged(selectedModules)
-    }
-
-    function selectRecommended() {
-        selectedModules = allModules.filter(function(m) {
-            return recommendedModuleIds.indexOf(m) !== -1
-        })
-        allSelected = (selectedModules.length === allModules.length)
-        moduleListView.model = []
-        moduleListView.model = allModules
-        root.selectionChanged(selectedModules)
     }
 }

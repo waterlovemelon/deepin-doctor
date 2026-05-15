@@ -3,12 +3,14 @@
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
 #include <QtGlobal>
+#include <QQuickStyle>
 
 int main(int argc, char* argv[])
 {
     QGuiApplication app(argc, argv);
     QGuiApplication::setApplicationName("deepin-doctor");
     QGuiApplication::setApplicationVersion("0.1.0");
+    QQuickStyle::setStyle("Basic");
 
     QQmlApplicationEngine engine;
     BackendProxy backendProxy;

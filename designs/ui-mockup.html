@@ -1,0 +1,838 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>Deepin Doctor - Desktop UI Mockup</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: "Noto Sans CJK SC", "Source Han Sans SC", sans-serif;
+            background: #2b2b2b;
+            display: flex; align-items: center; justify-content: center;
+            height: 100vh; color: #1a1a1a; font-size: 13px;
+        }
+
+        /* ========== Window ========== */
+        .window {
+            width: 960px; height: 640px; background: #f8f8f8;
+            border-radius: 12px 12px 0 0;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.25);
+            display: flex; flex-direction: column; overflow: hidden;
+            border: 1px solid #c0c0c0;
+        }
+
+        /* Title Bar */
+        .titlebar {
+            height: 40px; background: linear-gradient(to bottom, #f2f2f2, #e6e6e6);
+            border-bottom: 1px solid #c8c8c8;
+            display: flex; align-items: center; padding: 0 12px;
+            flex-shrink: 0; user-select: none;
+        }
+        .titlebar-icon {
+            width: 20px; height: 20px; background: #0081ff; border-radius: 4px;
+            margin-right: 8px; display: flex; align-items: center; justify-content: center;
+            color: white; font-size: 11px; font-weight: bold;
+        }
+        .titlebar-text { font-size: 13px; font-weight: 500; color: #333; flex: 1; }
+        .titlebar-controls { display: flex; gap: 8px; }
+        .win-btn { width: 12px; height: 12px; border-radius: 50%; border: none; cursor: pointer; }
+        .win-btn.close { background: #ff5f57; }
+        .win-btn.minimize { background: #ffbd2e; }
+        .win-btn.maximize { background: #28c940; }
+
+        /* Toolbar */
+        .toolbar {
+            height: 36px; background: #f0f0f0;
+            border-bottom: 1px solid #d0d0d0;
+            display: flex; align-items: center; padding: 0 8px; gap: 4px;
+            flex-shrink: 0;
+        }
+        .toolbar-btn {
+            display: inline-flex; align-items: center; gap: 4px;
+            padding: 4px 12px; border: 1px solid transparent; border-radius: 4px;
+            background: transparent; font-size: 12px; color: #444;
+            cursor: pointer; font-family: inherit; transition: all 0.1s;
+        }
+        .toolbar-btn:hover { background: #e0e0e0; border-color: #c0c0c0; }
+        .toolbar-btn:active { background: #d0d0d0; }
+        .toolbar-btn.primary { background: #0081ff; color: white; border-color: #0070dd; }
+        .toolbar-btn.primary:hover { background: #0070dd; }
+        .toolbar-btn:disabled { opacity: 0.4; cursor: default; }
+        .toolbar-btn:disabled:hover { background: transparent; border-color: transparent; }
+        .toolbar-sep { width: 1px; height: 20px; background: #d0d0d0; margin: 0 4px; }
+        .toolbar-spacer { flex: 1; }
+
+        /* Body */
+        .body { flex: 1; display: flex; overflow: hidden; }
+
+        /* Sidebar */
+        .sidebar {
+            width: 200px; min-width: 200px; background: #f4f4f4;
+            border-right: 1px solid #d0d0d0;
+            display: none; flex-direction: column;
+        }
+        .sidebar.visible { display: flex; }
+        .sidebar-title {
+            padding: 10px 12px 6px; font-size: 11px; font-weight: 600;
+            color: #888; text-transform: uppercase; letter-spacing: 0.5px;
+        }
+        .sidebar-list { flex: 1; overflow-y: auto; padding: 0 4px; }
+        .sidebar-item {
+            display: flex; align-items: center; gap: 8px;
+            padding: 7px 8px; border-radius: 6px;
+            cursor: pointer; transition: background 0.1s; margin-bottom: 1px;
+        }
+        .sidebar-item:hover { background: #e8e8e8; }
+        .sidebar-item.active { background: #d4e4fd; }
+        .sidebar-item .si-icon {
+            width: 28px; height: 28px; border-radius: 6px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 14px; flex-shrink: 0; background: #e0e0e0;
+        }
+        .sidebar-item.active .si-icon { background: #0081ff; }
+        .sidebar-item .si-text { flex: 1; min-width: 0; }
+        .sidebar-item .si-name { font-size: 13px; font-weight: 500; display: block; }
+        .sidebar-item .si-desc {
+            font-size: 10px; color: #999; display: block;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .sidebar-item .si-status { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+        .si-status.ok { background: #28c940; }
+        .si-status.none { background: #d0d0d0; }
+
+        /* Main Panel */
+        .main-panel { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+        .main-content { flex: 1; overflow-y: auto; }
+
+        /* Pages */
+        .page { display: none; }
+        .page.visible { display: block; }
+
+        /* ========== Home Page ========== */
+        .home-grid {
+            display: grid; grid-template-columns: repeat(4, 1fr);
+            gap: 12px; padding: 20px 24px;
+        }
+        .home-card {
+            background: #fff; border: 1px solid #e0e0e0; border-radius: 8px;
+            padding: 16px; cursor: pointer; transition: all 0.15s;
+        }
+        .home-card:hover { border-color: #0081ff; box-shadow: 0 2px 8px rgba(0,129,255,0.12); }
+        .home-card .hc-top { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+        .home-card .hc-icon {
+            width: 36px; height: 36px; border-radius: 8px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 18px; flex-shrink: 0;
+        }
+        .hc-icon.blue { background: #e8f0fe; }
+        .hc-icon.green { background: #e8f5e9; }
+        .hc-icon.orange { background: #fff3e0; }
+        .hc-icon.red { background: #ffebee; }
+        .hc-icon.purple { background: #f3e5f5; }
+        .hc-icon.teal { background: #e0f2f1; }
+        .hc-icon.indigo { background: #e8eaf6; }
+        .hc-icon.brown { background: #efebe9; }
+        .home-card .hc-info { flex: 1; min-width: 0; }
+        .home-card .hc-name { font-size: 13px; font-weight: 600; display: block; }
+        .home-card .hc-status {
+            font-size: 10px; display: inline-block; margin-top: 2px;
+            padding: 1px 6px; border-radius: 3px;
+        }
+        .hc-status.ready { background: #e8f5e9; color: #2e7d32; }
+        .hc-status.planned { background: #f5f5f5; color: #999; }
+        .home-card .hc-desc { font-size: 11px; color: #888; line-height: 1.4; }
+
+        /* ========== Module Detail Page ========== */
+        .module-page-header {
+            padding: 20px 24px 16px; border-bottom: 1px solid #e8e8e8;
+            background: #fff; display: flex; align-items: center; gap: 16px;
+        }
+        .mph-icon {
+            width: 48px; height: 48px; border-radius: 10px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 24px; flex-shrink: 0;
+        }
+        .mph-info { flex: 1; }
+        .mph-info h2 { font-size: 16px; font-weight: 600; }
+        .mph-info p { font-size: 12px; color: #888; margin-top: 2px; }
+        .mph-actions { display: flex; gap: 6px; }
+        .mph-actions .mph-btn {
+            padding: 6px 16px; font-size: 12px; font-weight: 500;
+            border: 1px solid #c0c0c0; border-radius: 4px;
+            background: #fafafa; cursor: pointer; font-family: inherit; color: #444;
+            transition: all 0.1s;
+        }
+        .mph-actions .mph-btn:hover { background: #e8e8e8; }
+        .mph-actions .mph-btn.primary { background: #0081ff; color: white; border-color: #0070dd; }
+        .mph-actions .mph-btn.primary:hover { background: #0070dd; }
+        .mph-actions .mph-btn:disabled { opacity: 0.4; cursor: default; }
+        .mph-actions .mph-btn:disabled:hover { background: #fafafa; }
+
+        .module-content { padding: 16px 24px; }
+
+        /* Summary cards row */
+        .summary-row {
+            display: grid; grid-template-columns: repeat(3, 1fr);
+            gap: 10px; margin-bottom: 16px;
+        }
+        .summary-card {
+            background: #fff; border: 1px solid #e0e0e0; border-radius: 6px;
+            padding: 12px 14px; display: flex; align-items: center; gap: 10px;
+        }
+        .summary-card .sc-icon {
+            width: 32px; height: 32px; border-radius: 6px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 15px; flex-shrink: 0;
+        }
+        .sc-icon.blue { background: #e8f0fe; }
+        .sc-icon.green { background: #e8f5e9; }
+        .sc-icon.red { background: #ffebee; }
+        .sc-icon.orange { background: #fff3e0; }
+        .summary-card .sc-text { flex: 1; }
+        .summary-card .sc-label { font-size: 11px; color: #888; display: block; }
+        .summary-card .sc-value { font-size: 14px; font-weight: 600; display: block; margin-top: 1px; }
+        .sc-value.ok { color: #2e7d32; }
+        .sc-value.warn { color: #e65100; }
+        .sc-value.error { color: #c62828; }
+
+        /* Progress */
+        .module-progress {
+            background: #fff; border: 1px solid #e0e0e0; border-radius: 6px;
+            padding: 14px 16px; margin-bottom: 16px; display: none;
+        }
+        .module-progress.visible { display: block; }
+        .mp-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+        .mp-label {
+            font-size: 12px; font-weight: 500;
+            display: flex; align-items: center; gap: 6px;
+        }
+        .spinner {
+            width: 14px; height: 14px;
+            border: 2px solid #e0e0e0; border-top-color: #0081ff;
+            border-radius: 50%; animation: spin 0.8s linear infinite;
+            display: none;
+        }
+        .spinner.active { display: block; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .mp-pct { font-size: 12px; font-weight: 600; color: #0081ff; margin-left: auto; }
+        .mp-bar { height: 4px; background: #e8e8e8; border-radius: 2px; overflow: hidden; }
+        .mp-bar .fill { height: 100%; background: #0081ff; border-radius: 2px; transition: width 0.2s; width: 0%; }
+        .mp-detail { font-size: 11px; color: #888; margin-top: 2px; }
+
+        /* Module results */
+        .module-results {
+            background: #fff; border: 1px solid #e0e0e0; border-radius: 6px;
+            overflow: hidden; display: none;
+        }
+        .module-results.visible { display: block; }
+        .mr-header {
+            padding: 10px 14px; background: #fafafa;
+            border-bottom: 1px solid #e8e8e8;
+            display: flex; align-items: center; gap: 8px;
+        }
+        .mr-header .mr-title { font-size: 13px; font-weight: 600; flex: 1; }
+        .mr-header .mr-badge { font-size: 11px; padding: 2px 10px; border-radius: 3px; font-weight: 500; }
+        .mr-badge.ok { background: #e8f5e9; color: #2e7d32; }
+        .mr-badge.warn { background: #fff3e0; color: #e65100; }
+        .mr-badge.error { background: #ffebee; color: #c62828; }
+        .mr-tabs { display: flex; background: #f0f0f0; border-bottom: 1px solid #d0d0d0; }
+        .mr-tab {
+            padding: 7px 16px; font-size: 12px; cursor: pointer;
+            border: none; background: none; color: #666;
+            border-bottom: 2px solid transparent; font-family: inherit;
+        }
+        .mr-tab:hover { color: #333; }
+        .mr-tab.active { color: #0081ff; border-bottom-color: #0081ff; background: #fff; }
+        .mr-body { max-height: 340px; overflow-y: auto; }
+
+        .result-group-title {
+            padding: 7px 14px; font-size: 11px; font-weight: 600;
+            color: #666; background: #fafafa;
+            border-bottom: 1px solid #eee;
+            display: flex; align-items: center; gap: 6px;
+        }
+        .rg-dot { width: 6px; height: 6px; border-radius: 50%; }
+        .rg-dot.ok { background: #28c940; }
+        .rg-dot.warn { background: #ff9500; }
+        .rg-dot.error { background: #ff3b30; }
+        .result-row {
+            display: flex; align-items: baseline;
+            padding: 6px 14px 6px 28px; font-size: 12px;
+            border-bottom: 1px solid #f4f4f4;
+        }
+        .result-row:last-child { border-bottom: none; }
+        .result-row:hover { background: #f8f8f8; }
+        .result-key { width: 100px; color: #888; flex-shrink: 0; }
+        .result-value { flex: 1; color: #333; word-break: break-all; }
+        .result-value.warn { color: #e65100; }
+        .result-value.error { color: #c62828; }
+
+        /* Module empty */
+        .module-empty {
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            padding: 60px 20px; color: #bbb;
+        }
+        .module-empty .me-icon { font-size: 40px; margin-bottom: 10px; opacity: 0.35; }
+        .module-empty p { font-size: 13px; }
+
+        /* ========== Export Dialog ========== */
+        .dialog-overlay {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.3);
+            display: none; align-items: center; justify-content: center; z-index: 100;
+        }
+        .dialog-overlay.visible { display: flex; }
+        .dialog {
+            background: #f8f8f8; border-radius: 8px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+            border: 1px solid #b0b0b0; width: 420px; overflow: hidden;
+        }
+        .dialog-header {
+            padding: 12px 16px;
+            background: linear-gradient(to bottom, #f2f2f2, #e6e6e6);
+            border-bottom: 1px solid #c8c8c8; font-size: 13px; font-weight: 600;
+        }
+        .dialog-body { padding: 16px; }
+        .dialog-field { margin-bottom: 12px; }
+        .dialog-field label { display: block; font-size: 12px; color: #666; margin-bottom: 4px; }
+        .dialog-field input[type="text"], .dialog-field select {
+            width: 100%; padding: 6px 8px; border: 1px solid #c0c0c0; border-radius: 4px;
+            font-size: 12px; font-family: inherit; background: #fff;
+        }
+        .dialog-field input:focus, .dialog-field select:focus { border-color: #0081ff; outline: none; }
+        .dialog-field .input-row { display: flex; gap: 4px; }
+        .dialog-field .input-row input { flex: 1; }
+        .dialog-field .input-row button {
+            padding: 4px 10px; font-size: 11px;
+            border: 1px solid #c0c0c0; border-radius: 4px;
+            background: #fafafa; cursor: pointer; font-family: inherit;
+        }
+        .dialog-field .hint { font-size: 11px; color: #999; margin-top: 4px; }
+        .dialog-actions {
+            display: flex; justify-content: flex-end; gap: 6px;
+            padding: 12px 16px; border-top: 1px solid #e0e0e0; background: #f0f0f0;
+        }
+        .dialog-actions button {
+            padding: 5px 20px; font-size: 12px;
+            border: 1px solid #c0c0c0; border-radius: 4px;
+            cursor: pointer; font-family: inherit;
+        }
+        .dialog-actions .btn-cancel { background: #fafafa; color: #444; }
+        .dialog-actions .btn-ok { background: #0081ff; color: white; border-color: #0070dd; }
+        .dialog-actions .btn-ok:hover { background: #0070dd; }
+    </style>
+</head>
+<body>
+    <div class="window">
+        <div class="titlebar">
+            <div class="titlebar-icon">D</div>
+            <div class="titlebar-text" id="titlebarText">Deepin Doctor</div>
+            <div class="titlebar-controls">
+                <button class="win-btn minimize"></button>
+                <button class="win-btn maximize"></button>
+                <button class="win-btn close"></button>
+            </div>
+        </div>
+
+        <div class="toolbar">
+            <button class="toolbar-btn" id="btnBack" style="display:none">&#9664; 返回</button>
+            <button class="toolbar-btn primary" id="btnCollect" style="display:none">&#9654; 采集</button>
+            <button class="toolbar-btn" id="btnDetect" style="display:none">&#9888; 检测</button>
+            <button class="toolbar-btn" id="btnExport" style="display:none">&#8681; 导出</button>
+            <button class="toolbar-btn" id="btnCopy" style="display:none">复制</button>
+            <div class="toolbar-spacer"></div>
+        </div>
+
+        <div class="body">
+            <div class="sidebar" id="sidebar">
+                <div class="sidebar-title">诊断模块</div>
+                <div class="sidebar-list" id="sidebarList"></div>
+            </div>
+
+            <div class="main-panel">
+                <div class="main-content">
+                    <div class="page visible" id="pageHome">
+                        <div class="home-grid" id="homeGrid"></div>
+                    </div>
+
+                    <div class="page" id="pageModule">
+                        <div class="module-page-header">
+                            <div class="mph-icon blue" id="mphIcon"></div>
+                            <div class="mph-info">
+                                <h2 id="mphName"></h2>
+                                <p id="mphDesc"></p>
+                            </div>
+                            <div class="mph-actions">
+                                <button class="mph-btn primary" id="mphCollect">&#9654; 采集</button>
+                                <button class="mph-btn" id="mphDetect">&#9888; 检测</button>
+                            </div>
+                        </div>
+                        <div class="module-content">
+                            <div class="summary-row" id="summaryRow"></div>
+                            <div class="module-progress" id="moduleProgress">
+                                <div class="mp-row">
+                                    <span class="mp-label">
+                                        <div class="spinner" id="mpSpinner"></div>
+                                        <span id="mpTitle">正在采集...</span>
+                                    </span>
+                                    <span class="mp-pct" id="mpPct">0%</span>
+                                </div>
+                                <div class="mp-bar"><div class="fill" id="mpFill"></div></div>
+                                <div class="mp-detail" id="mpDetail"></div>
+                            </div>
+                            <div class="module-empty" id="moduleEmpty">
+                                <div class="me-icon">&#128269;</div>
+                                <p>点击上方"采集"或"检测"开始诊断</p>
+                            </div>
+                            <div class="module-results" id="moduleResults">
+                                <div class="mr-header">
+                                    <span class="mr-title" id="mrTitle">诊断结果</span>
+                                    <span class="mr-badge ok" id="mrBadge">正常</span>
+                                </div>
+                                <div class="mr-tabs">
+                                    <button class="mr-tab active" data-tab="0">采集结果</button>
+                                    <button class="mr-tab" data-tab="1">检测结果</button>
+                                </div>
+                                <div class="mr-body" id="mrBody0"></div>
+                                <div class="mr-body" id="mrBody1" style="display:none"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="dialog-overlay" id="exportDialog">
+        <div class="dialog">
+            <div class="dialog-header">导出诊断报告</div>
+            <div class="dialog-body">
+                <div class="dialog-field">
+                    <label>导出路径</label>
+                    <div class="input-row">
+                        <input type="text" value="/home/user/deepin-doctor-export.tar.gz" />
+                        <button>浏览...</button>
+                    </div>
+                </div>
+                <div class="dialog-field">
+                    <label>格式</label>
+                    <select>
+                        <option>压缩包 (.tar.gz)</option>
+                        <option>JSON (.json)</option>
+                        <option>纯文本 (.txt)</option>
+                    </select>
+                </div>
+                <div class="dialog-field">
+                    <div class="hint">导出结果可用于 bug 报告或技术支持</div>
+                </div>
+            </div>
+            <div class="dialog-actions">
+                <button class="btn-cancel" id="btnDialogCancel">取消</button>
+                <button class="btn-ok" id="btnDialogOk">导出</button>
+            </div>
+        </div>
+    </div>
+
+<script>
+var modules = [
+    {
+        id: 'logs', name: '日志', icon: '\u{1F4CB}', color: 'red',
+        desc: '系统日志、内核日志、应用日志分析',
+        fullDesc: '采集并分析 syslog、kern.log、journal 日志中的错误和警告',
+        status: 'ready',
+        summary: [
+            { icon: '\u{1F6A8}', label: '错误', value: '3 条', cls: 'error', iconBg: 'red' },
+            { icon: '\u{26A0}', label: '警告', value: '12 条', cls: 'warn', iconBg: 'orange' },
+            { icon: '\u{1F4C4}', label: '日志源', value: '3 个', cls: 'ok', iconBg: 'green' }
+        ],
+        collectData: [
+            { group: '错误日志', dot: 'error', rows: [['ERROR','3 条 (最近 24h)'],['来源','systemd, NetworkManager, kernel']] },
+            { group: '警告日志', dot: 'warn', rows: [['WARNING','12 条 (最近 24h)'],['主要来源','NetworkManager (8 条)']] },
+            { group: '日志源', dot: 'ok', rows: [['syslog','可用'],['kern.log','可用'],['journal','可用']] }
+        ],
+        detectData: [
+            { group: '发现问题', dot: 'error', badge: 'error', badgeText: '1 项异常', rows: [['硬件错误','kern.log 发现 I/O 错误，建议检查磁盘健康']] },
+            { group: '检查通过', dot: 'ok', badge: 'ok', badgeText: '2 项正常', rows: [['日志服务','rsyslog 运行正常'],['日志轮转','配置正常']] }
+        ]
+    },
+    {
+        id: 'network', name: '网络', icon: '\u{1F310}', color: 'blue',
+        desc: '网络接口、路由表、DNS 配置、连通性检测',
+        fullDesc: '检查网络接口状态、IP 配置、路由表、DNS 解析和外网连通性',
+        status: 'ready',
+        summary: [
+            { icon: '\u{1F5A5}', label: '接口', value: '2 个', cls: 'ok', iconBg: 'blue' },
+            { icon: '\u{1F30D}', label: '外网', value: '可达', cls: 'ok', iconBg: 'green' },
+            { icon: '\u{1F4E1}', label: 'DNS', value: '正常', cls: 'ok', iconBg: 'green' }
+        ],
+        collectData: [
+            { group: '接口状态', dot: 'ok', rows: [['接口','eth0: 192.168.1.100/24 | wlan0: 未连接'],['MAC','aa:bb:cc:dd:ee:ff'],['链路','eth0: 已连接 (1000Mbps)']] },
+            { group: 'DNS', dot: 'ok', rows: [['主 DNS','8.8.8.8 — 响应正常 (12ms)'],['备 DNS','114.114.114.114 — 响应正常 (8ms)'],['resolv.conf','nameserver 8.8.8.8']] },
+            { group: '路由', dot: 'ok', rows: [['默认路由','192.168.1.1 via eth0'],['路由条目','3 条']] },
+            { group: '连通性', dot: 'ok', rows: [['外网','可达 (延迟 12ms)'],['网关','192.168.1.1 可达']] }
+        ],
+        detectData: [
+            { group: '检查通过', dot: 'ok', badge: 'ok', badgeText: '4 项正常', rows: [['接口链路','所有活动接口正常'],['DNS 解析','响应时间 < 50ms'],['路由表','默认路由可达'],['连通性','外网可达']] }
+        ]
+    },
+    {
+        id: 'system', name: '系统', icon: '\u{2699}', color: 'green',
+        desc: '操作系统版本、内核信息、主机名、运行时间',
+        fullDesc: '采集操作系统版本、内核、主机名、运行时间、内存和 CPU 信息',
+        status: 'ready',
+        summary: [
+            { icon: '\u{1F4BB}', label: '系统', value: 'Deepin 20.9', cls: 'ok', iconBg: 'green' },
+            { icon: '\u{2696}', label: '内存', value: '49%', cls: 'ok', iconBg: 'blue' },
+            { icon: '\u{1F4BE}', label: '磁盘', value: '36%', cls: 'ok', iconBg: 'blue' }
+        ],
+        collectData: [
+            { group: '基本信息', dot: 'ok', rows: [['系统版本','Deepin 20.9 x86_64'],['内核','5.18.17-amd64-desktop-hwe'],['主机名','ut003607-uos'],['运行时间','3 天 12 小时 45 分钟']] },
+            { group: '硬件', dot: 'ok', rows: [['CPU','Intel i7-12700 (12 核 20 线程)'],['内存','15.4 GiB / 31.2 GiB (49%)'],['磁盘','/dev/sda1: 180G / 500G (36%)']] }
+        ],
+        detectData: [
+            { group: '检查通过', dot: 'ok', badge: 'ok', badgeText: '5 项正常', rows: [['系统完整性','关键文件校验通过'],['内核模块','无异常加载'],['服务状态','关键服务运行正常'],['内存使用','正常范围'],['磁盘空间','充足']] }
+        ]
+    },
+    {
+        id: 'environment', name: '环境', icon: '\u{1F30F}', color: 'orange',
+        desc: '环境变量、区域设置、PATH 配置检查',
+        fullDesc: '检查环境变量配置、LANG/LC 设置、PATH 合法性',
+        status: 'ready',
+        summary: [
+            { icon: '\u{1F310}', label: 'LANG', value: 'zh_CN', cls: 'ok', iconBg: 'green' },
+            { icon: '\u{1F4C2}', label: 'PATH', value: '有重复', cls: 'warn', iconBg: 'orange' },
+            { icon: '\u{1F41A}', label: 'Shell', value: 'zsh', cls: 'ok', iconBg: 'green' }
+        ],
+        collectData: [
+            { group: '区域设置', dot: 'ok', rows: [['LANG','zh_CN.UTF-8'],['LC_ALL','(未设置)'],['时区','Asia/Shanghai (CST)']] },
+            { group: 'PATH', dot: 'warn', rows: [['PATH','/usr/local/bin:/usr/bin:/bin'],['问题','存在重复项: /usr/local/bin']] },
+            { group: 'Shell', dot: 'ok', rows: [['SHELL','/bin/zsh'],['TERM','xterm-256color']] }
+        ],
+        detectData: [
+            { group: '发现问题', dot: 'warn', badge: 'warn', badgeText: '1 项警告', rows: [['PATH 重复','/usr/local/bin 在 PATH 中出现 2 次']] },
+            { group: '检查通过', dot: 'ok', badge: 'ok', badgeText: '3 项正常', rows: [['LANG','UTF-8 编码正确'],['时区','与系统时钟一致'],['Shell','配置正常']] }
+        ]
+    },
+    {
+        id: 'listening', name: '监听任务', icon: '\u{1F4E1}', color: 'purple',
+        desc: '端口监听、服务状态、进程关联检查',
+        fullDesc: '检查系统中正在监听的端口、对应服务和进程',
+        status: 'planned', summary: []
+    },
+    {
+        id: 'netenv', name: '网络环境检查', icon: '\u{1F6E1}', color: 'teal',
+        desc: '代理配置、防火墙规则、VPN 状态检测',
+        fullDesc: '检测网络环境配置，包括代理、防火墙和 VPN',
+        status: 'planned', summary: []
+    },
+    {
+        id: 'disk', name: '磁盘健康', icon: '\u{1F4BD}', color: 'indigo',
+        desc: 'SMART 信息、磁盘空间、文件系统检查',
+        fullDesc: '检查磁盘健康状态、SMART 数据和文件系统完整性',
+        status: 'planned', summary: []
+    },
+    {
+        id: 'security', name: '安全检查', icon: '\u{1F512}', color: 'brown',
+        desc: '用户权限、SUID 文件、开放端口安全审计',
+        fullDesc: '系统安全审计，检查异常权限和潜在风险',
+        status: 'planned', summary: []
+    }
+];
+
+var currentModule = null;
+var collecting = false;
+var detecting = false;
+
+// ========== Render ==========
+function renderSidebar() {
+    var list = document.getElementById('sidebarList');
+    var html = '';
+    for (var i = 0; i < modules.length; i++) {
+        var m = modules[i];
+        var stClass = m.status === 'planned' ? 'none' : 'ok';
+        html += '<div class="sidebar-item" data-id="' + m.id + '">'
+            + '<div class="si-icon">' + m.icon + '</div>'
+            + '<div class="si-text"><span class="si-name">' + m.name + '</span>'
+            + '<span class="si-desc">' + m.desc + '</span></div>'
+            + '<div class="si-status ' + stClass + '"></div></div>';
+    }
+    list.textContent = '';
+    list.insertAdjacentHTML('beforeend', html);
+}
+
+function renderHomeGrid() {
+    var grid = document.getElementById('homeGrid');
+    var html = '';
+    for (var i = 0; i < modules.length; i++) {
+        var m = modules[i];
+        var stText = m.status === 'planned' ? '规划中' : '可用';
+        var stClass = m.status === 'planned' ? 'planned' : 'ready';
+        html += '<div class="home-card" data-id="' + m.id + '">'
+            + '<div class="hc-top"><div class="hc-icon ' + m.color + '">' + m.icon + '</div>'
+            + '<div class="hc-info"><span class="hc-name">' + m.name + '</span>'
+            + '<span class="hc-status ' + stClass + '">' + stText + '</span></div></div>'
+            + '<div class="hc-desc">' + m.desc + '</div></div>';
+    }
+    grid.textContent = '';
+    grid.insertAdjacentHTML('beforeend', html);
+}
+
+function renderSummary(m) {
+    var row = document.getElementById('summaryRow');
+    if (!m.summary || m.summary.length === 0) {
+        row.style.display = 'none';
+        return;
+    }
+    row.style.display = '';
+    var html = '';
+    for (var i = 0; i < m.summary.length; i++) {
+        var s = m.summary[i];
+        html += '<div class="summary-card">'
+            + '<div class="sc-icon ' + s.iconBg + '">' + s.icon + '</div>'
+            + '<div class="sc-text"><span class="sc-label">' + s.label + '</span>'
+            + '<span class="sc-value ' + s.cls + '">' + s.value + '</span></div></div>';
+    }
+    row.textContent = '';
+    row.insertAdjacentHTML('beforeend', html);
+}
+
+// ========== Navigation ==========
+function navigateTo(id) {
+    var m = null;
+    for (var i = 0; i < modules.length; i++) {
+        if (modules[i].id === id) { m = modules[i]; break; }
+    }
+    if (!m) return;
+    currentModule = m;
+
+    var items = document.querySelectorAll('.sidebar-item');
+    for (var i = 0; i < items.length; i++) {
+        items[i].classList.toggle('active', items[i].dataset.id === id);
+    }
+
+    document.getElementById('pageHome').classList.remove('visible');
+    document.getElementById('pageModule').classList.add('visible');
+    document.getElementById('sidebar').classList.add('visible');
+
+    var mphIcon = document.getElementById('mphIcon');
+    mphIcon.className = 'mph-icon ' + m.color;
+    mphIcon.textContent = m.icon;
+    document.getElementById('mphName').textContent = m.name;
+    document.getElementById('mphDesc').textContent = m.fullDesc;
+    document.getElementById('titlebarText').textContent = m.name + ' — Deepin Doctor';
+
+    document.getElementById('btnBack').style.display = '';
+    var isPlanned = m.status === 'planned';
+    document.getElementById('btnCollect').style.display = isPlanned ? 'none' : '';
+    document.getElementById('btnDetect').style.display = isPlanned ? 'none' : '';
+    document.getElementById('btnExport').style.display = 'none';
+    document.getElementById('btnCopy').style.display = 'none';
+    document.getElementById('mphCollect').disabled = isPlanned;
+    document.getElementById('mphDetect').disabled = isPlanned;
+
+    renderSummary(m);
+
+    document.getElementById('moduleProgress').classList.remove('visible');
+    document.getElementById('moduleResults').classList.remove('visible');
+    var empty = document.getElementById('moduleEmpty');
+    if (isPlanned) {
+        empty.style.display = 'flex';
+        empty.querySelector('.me-icon').textContent = '\u{1F6A7}';
+        empty.querySelector('p').textContent = '该模块正在规划中，敬请期待';
+    } else {
+        empty.style.display = 'flex';
+        empty.querySelector('.me-icon').textContent = '\u{1F50D}';
+        empty.querySelector('p').textContent = '点击上方"采集"或"检测"开始诊断';
+    }
+}
+
+function goHome() {
+    currentModule = null;
+    document.getElementById('pageModule').classList.remove('visible');
+    document.getElementById('pageHome').classList.add('visible');
+    document.getElementById('sidebar').classList.remove('visible');
+    document.getElementById('titlebarText').textContent = 'Deepin Doctor';
+
+    var items = document.querySelectorAll('.sidebar-item');
+    for (var i = 0; i < items.length; i++) items[i].classList.remove('active');
+
+    document.getElementById('btnBack').style.display = 'none';
+    document.getElementById('btnCollect').style.display = 'none';
+    document.getElementById('btnDetect').style.display = 'none';
+    document.getElementById('btnExport').style.display = 'none';
+    document.getElementById('btnCopy').style.display = 'none';
+}
+
+// ========== Actions ==========
+function doCollect() {
+    if (!currentModule || currentModule.status === 'planned' || collecting) return;
+    collecting = true;
+    var m = currentModule;
+
+    document.getElementById('moduleProgress').classList.add('visible');
+    document.getElementById('mpSpinner').classList.add('active');
+    document.getElementById('mpTitle').textContent = '正在采集 ' + m.name + '...';
+    document.getElementById('moduleEmpty').style.display = 'none';
+    document.getElementById('moduleResults').classList.remove('visible');
+    document.getElementById('mphCollect').disabled = true;
+    document.getElementById('mphDetect').disabled = true;
+
+    var pct = 0;
+    var iv = setInterval(function() {
+        pct += Math.random() * 18;
+        if (pct > 100) pct = 100;
+        document.getElementById('mpPct').textContent = Math.round(pct) + '%';
+        document.getElementById('mpFill').style.width = pct + '%';
+        document.getElementById('mpDetail').textContent = '采集数据中...';
+        if (pct >= 100) {
+            clearInterval(iv);
+            collecting = false;
+            document.getElementById('mpSpinner').classList.remove('active');
+            document.getElementById('mpTitle').textContent = '采集完成';
+            document.getElementById('mpDetail').textContent = m.name + ' 信息采集完成';
+            document.getElementById('mphCollect').disabled = false;
+            document.getElementById('mphDetect').disabled = false;
+            document.getElementById('btnExport').style.display = '';
+            document.getElementById('btnCopy').style.display = '';
+            showCollectResults(m);
+        }
+    }, 250);
+}
+
+function doDetect() {
+    if (!currentModule || currentModule.status === 'planned' || detecting) return;
+    detecting = true;
+    var m = currentModule;
+
+    document.getElementById('moduleProgress').classList.add('visible');
+    document.getElementById('mpSpinner').classList.add('active');
+    document.getElementById('mpTitle').textContent = '正在检测 ' + m.name + '...';
+    document.getElementById('moduleEmpty').style.display = 'none';
+    document.getElementById('moduleResults').classList.remove('visible');
+    document.getElementById('mphCollect').disabled = true;
+    document.getElementById('mphDetect').disabled = true;
+
+    var pct = 0;
+    var iv = setInterval(function() {
+        pct += Math.random() * 22;
+        if (pct > 100) pct = 100;
+        document.getElementById('mpPct').textContent = Math.round(pct) + '%';
+        document.getElementById('mpFill').style.width = pct + '%';
+        document.getElementById('mpDetail').textContent = '分析中...';
+        if (pct >= 100) {
+            clearInterval(iv);
+            detecting = false;
+            document.getElementById('mpSpinner').classList.remove('active');
+            document.getElementById('mpTitle').textContent = '检测完成';
+            document.getElementById('mpDetail').textContent = m.name + ' 检测完成';
+            document.getElementById('mphCollect').disabled = false;
+            document.getElementById('mphDetect').disabled = false;
+            document.getElementById('btnExport').style.display = '';
+            document.getElementById('btnCopy').style.display = '';
+            showDetectResults(m);
+        }
+    }, 300);
+}
+
+// ========== Results ==========
+function renderResultRows(data) {
+    var html = '';
+    for (var i = 0; i < data.length; i++) {
+        var g = data[i];
+        html += '<div class="result-group-title"><span class="rg-dot ' + g.dot + '"></span> ' + g.group;
+        if (g.badge) {
+            html += '<span class="mr-badge ' + g.badge + '" style="margin-left:auto">' + g.badgeText + '</span>';
+        }
+        html += '</div>';
+        for (var j = 0; j < g.rows.length; j++) {
+            var r = g.rows[j];
+            var valClass = g.dot !== 'ok' ? ' ' + g.dot : '';
+            html += '<div class="result-row"><span class="result-key">' + r[0] + '</span>'
+                + '<span class="result-value' + valClass + '">' + r[1] + '</span></div>';
+        }
+    }
+    return html;
+}
+
+function showCollectResults(m) {
+    document.getElementById('moduleResults').classList.add('visible');
+    document.getElementById('mrTitle').textContent = '采集结果';
+
+    var allOk = true;
+    for (var i = 0; i < m.collectData.length; i++) {
+        if (m.collectData[i].dot !== 'ok') { allOk = false; break; }
+    }
+    var badge = document.getElementById('mrBadge');
+    badge.className = 'mr-badge ' + (allOk ? 'ok' : 'warn');
+    badge.textContent = allOk ? '正常' : '有异常';
+
+    document.getElementById('mrBody0').textContent = '';
+    document.getElementById('mrBody0').insertAdjacentHTML('beforeend', renderResultRows(m.collectData));
+    document.getElementById('mrBody1').textContent = '';
+    document.getElementById('mrBody1').insertAdjacentHTML('beforeend',
+        '<div style="padding:24px;text-align:center;color:#bbb;font-size:12px">请先执行"检测"操作</div>');
+
+    switchMrTab(0, document.querySelector('.mr-tab[data-tab="0"]'));
+}
+
+function showDetectResults(m) {
+    document.getElementById('moduleResults').classList.add('visible');
+    document.getElementById('mrTitle').textContent = '检测结果';
+
+    var hasIssue = false;
+    for (var i = 0; i < m.detectData.length; i++) {
+        if (m.detectData[i].dot !== 'ok') { hasIssue = true; break; }
+    }
+    var badge = document.getElementById('mrBadge');
+    badge.className = 'mr-badge ' + (hasIssue ? 'warn' : 'ok');
+    badge.textContent = hasIssue ? '发现问题' : '全部通过';
+
+    document.getElementById('mrBody1').textContent = '';
+    document.getElementById('mrBody1').insertAdjacentHTML('beforeend', renderResultRows(m.detectData));
+
+    switchMrTab(1, document.querySelector('.mr-tab[data-tab="1"]'));
+}
+
+function switchMrTab(idx, el) {
+    var tabs = document.querySelectorAll('.mr-tab');
+    for (var i = 0; i < tabs.length; i++) tabs[i].classList.remove('active');
+    el.classList.add('active');
+    document.getElementById('mrBody0').style.display = idx === 0 ? 'block' : 'none';
+    document.getElementById('mrBody1').style.display = idx === 1 ? 'block' : 'none';
+}
+
+// ========== Events ==========
+document.getElementById('sidebarList').addEventListener('click', function(e) {
+    var item = e.target.closest('.sidebar-item');
+    if (item) navigateTo(item.dataset.id);
+});
+document.getElementById('homeGrid').addEventListener('click', function(e) {
+    var card = e.target.closest('.home-card');
+    if (card) navigateTo(card.dataset.id);
+});
+document.getElementById('btnBack').addEventListener('click', goHome);
+document.getElementById('btnCollect').addEventListener('click', doCollect);
+document.getElementById('btnDetect').addEventListener('click', doDetect);
+document.getElementById('mphCollect').addEventListener('click', doCollect);
+document.getElementById('mphDetect').addEventListener('click', doDetect);
+document.getElementById('btnExport').addEventListener('click', function() {
+    document.getElementById('exportDialog').classList.add('visible');
+});
+document.getElementById('btnDialogCancel').addEventListener('click', function() {
+    document.getElementById('exportDialog').classList.remove('visible');
+});
+document.getElementById('btnDialogOk').addEventListener('click', function() {
+    document.getElementById('exportDialog').classList.remove('visible');
+});
+document.getElementById('btnCopy').addEventListener('click', function() {});
+document.querySelector('.mr-tabs').addEventListener('click', function(e) {
+    var tab = e.target.closest('.mr-tab');
+    if (tab) switchMrTab(parseInt(tab.dataset.tab), tab);
+});
+
+renderSidebar();
+renderHomeGrid();
+</script>
+</body>
+</html>

@@ -64,7 +64,8 @@ set(FRONTEND_SOURCES
 
 set(QML_FILES
     src/frontend/qml/Main.qml
-    src/frontend/qml/pages/MainPage.qml
+    src/frontend/qml/pages/HomePage.qml
+    src/frontend/qml/pages/ModulePage.qml
     src/frontend/qml/pages/ExportPage.qml
     src/frontend/qml/components/ModuleSelector.qml
     src/frontend/qml/components/ResultView.qml
