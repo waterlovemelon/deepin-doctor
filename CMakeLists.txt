@@ -13,7 +13,14 @@ if (CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
 endif()
 
 # Find Qt (prefer Qt6, fallback to Qt5)
-find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Core DBus Quick QuickControls2 Concurrent Network)
+# Check if Qt6 Quick is actually available before trying Qt6
+find_package(Qt6Quick QUIET)
+if(Qt6Quick_FOUND)
+    set(QT_DEFAULT_MAJOR_VERSION 6)
+    find_package(QT NAMES Qt6 REQUIRED COMPONENTS Core DBus Quick QuickControls2 Concurrent Network)
+else()
+    find_package(QT NAMES Qt5 REQUIRED COMPONENTS Core DBus Quick QuickControls2 Concurrent Network)
+endif()
 find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Core DBus Quick QuickControls2 Concurrent Network)
 
 if(QT_VERSION_MAJOR EQUAL 6)
@@ -37,6 +44,7 @@ add_executable(deepin-doctor-daemon
     src/backend/DBusService.cpp
     src/backend/ModuleManager.cpp
     src/backend/PluginManager.cpp
+    src/backend/LogDBusService.cpp
     # Built-in modules
     src/backend/modules/network/NetworkModule.cpp
     src/backend/modules/system/SystemModule.cpp
@@ -60,6 +68,7 @@ target_include_directories(deepin-doctor-daemon PRIVATE
 set(FRONTEND_SOURCES
     src/frontend/main.cpp
     src/frontend/BackendProxy.cpp
+    src/frontend/LogBackendProxy.cpp
 )
 
 set(QML_FILES
@@ -68,7 +77,17 @@ set(QML_FILES
     src/frontend/qml/pages/ModulePage.qml
     src/frontend/qml/pages/ExportPage.qml
     src/frontend/qml/components/ModuleSelector.qml
+    src/frontend/qml/components/PageLayout.qml
     src/frontend/qml/components/ResultView.qml
+    src/frontend/qml/dtk/DTKStyle.qml
+    src/frontend/qml/dtk/DTKHighlightPanel.qml
+    src/frontend/qml/dtk/DTKItemDelegate.qml
+    src/frontend/qml/dtk/DTKBoxPanel.qml
+    src/frontend/qml/dtk/DTKButton.qml
+    src/frontend/qml/dtk/DTKCheckBox.qml
+    src/frontend/qml/dtk/DTKTextField.qml
+    src/frontend/qml/dtk/DTKProgressBar.qml
+    src/frontend/qml/dtk/qmldir
 )
 
 if(QT_VERSION_MAJOR EQUAL 6)
@@ -137,6 +156,7 @@ function(add_deepin_doctor_test TEST_NAME TEST_SOURCE)
             Qt${QT_VERSION_MAJOR}::Core
             Qt${QT_VERSION_MAJOR}::Test
             Qt${QT_VERSION_MAJOR}::Concurrent
+            Qt${QT_VERSION_MAJOR}::DBus
     )
 
     target_include_directories(${TEST_NAME} PRIVATE
@@ -202,6 +222,11 @@ add_deepin_doctor_test(test_module_manager
 add_deepin_doctor_test(test_logs_module
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_logs_module.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/backend/modules/logs/LogsModule.cpp
+)
+
+add_deepin_doctor_test(test_log_dbus_service
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_log_dbus_service.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/backend/LogDBusService.cpp
 )
 
 # Plugins

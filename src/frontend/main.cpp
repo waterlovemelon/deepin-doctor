@@ -1,4 +1,5 @@
 #include "BackendProxy.h"
+#include "LogBackendProxy.h"
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
@@ -15,6 +16,8 @@ int main(int argc, char* argv[])
     QQmlApplicationEngine engine;
     BackendProxy backendProxy;
     engine.rootContext()->setContextProperty("backend", &backendProxy);
+    LogBackendProxy logBackendProxy;
+    engine.rootContext()->setContextProperty("logBackend", &logBackendProxy);
     engine.rootContext()->setContextProperty("QtVersionMajor", QT_VERSION_MAJOR);
 
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)

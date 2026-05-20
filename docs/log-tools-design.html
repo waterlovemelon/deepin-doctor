@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Deepin Doctor - 日志工具</title>
+<style>
+  :root {
+    --bg: #f7f7f7;
+    --surface: #ffffff;
+    --border: #e0e0e0;
+    --text: #1a1a1a;
+    --text-sec: #6b6b6b;
+    --text-hint: #999;
+    --accent: #0066cc;
+    --accent-hover: #0052a3;
+    --accent-subtle: #e8f0fe;
+    --warn-bg: #fef7ed;
+    --warn-bd: #f0a030;
+    --warn-tx: #b07000;
+    --radius: 6px;
+    --overlay: rgba(0,0,0,0.35);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: "Noto Sans CJK SC", "Source Han Sans SC", -apple-system, sans-serif;
+    font-size: 13px; color: var(--text); background: var(--bg);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .win {
+    width: 780px; height: 520px; margin: 40px auto; background: var(--surface);
+    border-radius: 10px; box-shadow: 0 8px 32px rgba(0,0,0,0.12), 0 0 0 1px rgba(0,0,0,0.04);
+    overflow: hidden; display: flex; position: relative;
+  }
+
+  /* ── Nav sidebar ── */
+  .nav-sidebar {
+    width: 140px; background: #fafafa; border-right: 1px solid var(--border);
+    padding: 20px 0; display: flex; flex-direction: column; gap: 2px; flex-shrink: 0;
+  }
+  .nav-label {
+    font-size: 11px; font-weight: 600; color: var(--text-hint); text-transform: uppercase;
+    letter-spacing: 0.5px; padding: 0 16px; margin-bottom: 8px;
+  }
+  .nav-item {
+    display: flex; align-items: center; gap: 10px; padding: 9px 16px;
+    cursor: pointer; color: var(--text-sec); transition: background 0.12s, color 0.12s;
+    font-size: 13px; user-select: none;
+  }
+  .nav-item:hover { background: rgba(0,0,0,0.03); color: var(--text); }
+  .nav-item.active { background: var(--accent-subtle); color: var(--accent); font-weight: 600; }
+
+  /* ── Main ── */
+  .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+  /* ── Action bar ── */
+  .action-bar {
+    display: flex; gap: 8px; padding: 16px 24px;
+    border-bottom: 1px solid var(--border); flex-shrink: 0;
+  }
+
+  .btn {
+    padding: 8px 20px; border-radius: var(--radius); font-size: 13px; font-weight: 600;
+    cursor: pointer; transition: all 0.12s; border: none;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .btn svg { width: 14px; height: 14px; }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover { background: var(--accent-hover); }
+  .btn-outline { background: var(--surface); color: var(--accent); border: 1.5px solid var(--accent); }
+  .btn-outline:hover { background: var(--accent-subtle); }
+  .btn-secondary { background: var(--bg); color: var(--text); border: 1px solid var(--border); }
+  .btn-secondary:hover { background: #eee; }
+  .btn-ghost { background: none; color: var(--text-sec); border: 1px solid var(--border); }
+  .btn-ghost:hover { background: var(--bg); color: var(--text); }
+
+  /* ── Content ── */
+  .content { flex: 1; overflow-y: auto; padding: 20px 24px; }
+
+  /* ── Section ── */
+  .section { margin-bottom: 20px; }
+  .section-title {
+    font-size: 12px; font-weight: 600; color: var(--text-sec);
+    margin-bottom: 10px; padding-bottom: 6px; border-bottom: 1px solid var(--border);
+  }
+
+  /* ── Radio cards ── */
+  .radio-cards { display: flex; gap: 8px; }
+  .radio-card {
+    flex: 1; border: 1.5px solid var(--border); border-radius: var(--radius);
+    padding: 10px 12px; cursor: pointer; transition: border-color 0.12s, background 0.12s; user-select: none;
+  }
+  .radio-card:hover { border-color: #bbb; }
+  .radio-card.selected { border-color: var(--accent); background: var(--accent-subtle); }
+  .radio-card input[type="radio"] { display: none; }
+  .radio-card .rc-title { font-size: 13px; font-weight: 600; margin-bottom: 2px; }
+  .radio-card .rc-desc { font-size: 11px; color: var(--text-sec); line-height: 1.4; }
+
+  /* ── Checkboxes ── */
+  .check-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 16px; }
+  .check-item {
+    display: flex; align-items: center; gap: 8px; padding: 5px 8px;
+    border-radius: 4px; cursor: pointer; transition: background 0.1s; font-size: 13px;
+  }
+  .check-item:hover { background: rgba(0,0,0,0.03); }
+  .check-item input[type="checkbox"] { width: 15px; height: 15px; accent-color: var(--accent); flex-shrink: 0; }
+  .link-btn {
+    background: none; border: none; color: var(--accent); font-size: 12px;
+    cursor: pointer; padding: 2px 0;
+  }
+  .link-btn:hover { text-decoration: underline; }
+  .link-btn + .link-btn::before {
+    content: ""; display: inline-block; width: 1px; height: 10px;
+    background: var(--border); margin: 0 8px; vertical-align: middle;
+  }
+
+  /* ── Level chips ── */
+  .level-group { display: flex; gap: 6px; }
+  .level-chip {
+    padding: 6px 16px; border: 1.5px solid var(--border); border-radius: 20px;
+    font-size: 12px; font-weight: 500; cursor: pointer; transition: all 0.12s;
+    user-select: none; color: var(--text-sec);
+  }
+  .level-chip:hover { border-color: #bbb; color: var(--text); }
+  .level-chip.selected { border-color: var(--accent); background: var(--accent); color: #fff; }
+  .level-chip input[type="radio"] { display: none; }
+
+  /* ── Text field ── */
+  .field-row { display: flex; align-items: center; gap: 10px; }
+  .field-label { font-size: 12px; color: var(--text-sec); white-space: nowrap; }
+  .text-field {
+    flex: 1; border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 7px 10px; font-size: 13px; font-family: "JetBrains Mono", monospace;
+    outline: none; transition: border-color 0.15s; background: var(--bg);
+  }
+  .text-field:focus { border-color: var(--accent); background: var(--surface); }
+
+  /* ── Warning ── */
+  .warning {
+    background: var(--warn-bg); border: 1px solid var(--warn-bd); border-radius: var(--radius);
+    padding: 10px 14px; font-size: 12px; color: var(--warn-tx);
+    margin-bottom: 16px; display: none; align-items: center; gap: 8px;
+  }
+  .warning.show { display: flex; }
+  .warning svg { width: 16px; height: 16px; flex-shrink: 0; }
+
+  /* ── Modal overlay ── */
+  .modal-overlay {
+    position: absolute; inset: 0; background: var(--overlay);
+    display: none; align-items: center; justify-content: center; z-index: 50;
+    border-radius: 10px;
+  }
+  .modal-overlay.show { display: flex; }
+
+  .modal {
+    background: var(--surface); border-radius: 10px; padding: 28px 32px;
+    width: 360px; box-shadow: 0 12px 40px rgba(0,0,0,0.2);
+    animation: modalIn 0.18s ease;
+  }
+  @keyframes modalIn {
+    from { opacity: 0; transform: scale(0.95) translateY(8px); }
+    to { opacity: 1; transform: scale(1) translateY(0); }
+  }
+  .modal-icon {
+    width: 40px; height: 40px; border-radius: 10px; display: flex;
+    align-items: center; justify-content: center; margin-bottom: 16px;
+  }
+  .modal-icon svg { width: 22px; height: 22px; }
+  .modal-icon.blue { background: var(--accent-subtle); color: var(--accent); }
+  .modal-icon.green { background: #e8f5e9; color: #2e7d32; }
+  .modal-title { font-size: 15px; font-weight: 700; margin-bottom: 6px; }
+  .modal-desc { font-size: 12px; color: var(--text-sec); line-height: 1.6; margin-bottom: 20px; }
+  .modal-actions { display: flex; gap: 8px; }
+  .modal-actions .btn { flex: 1; justify-content: center; }
+
+  /* ── Toast ── */
+  .toast {
+    position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%) translateY(20px);
+    background: #333; color: #fff; padding: 10px 20px; border-radius: 6px;
+    font-size: 13px; opacity: 0; pointer-events: none; transition: opacity 0.25s, transform 0.25s;
+    z-index: 200; box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+<div class="win">
+
+  <!-- Nav sidebar -->
+  <div class="nav-sidebar">
+    <div class="nav-label">日志工具</div>
+    <div class="nav-item active" onclick="switchNav('export', this)">导出日志</div>
+    <div class="nav-item" onclick="switchNav('debug', this)">调试模式</div>
+  </div>
+
+  <!-- Main -->
+  <div class="main">
+
+    <!-- Action bar: 导出在前，调试在后 -->
+    <div class="action-bar">
+      <button class="btn btn-primary" onclick="openModal('export')">
+        <svg viewBox="0 0 16 16" fill="currentColor"><path d="M2 12h12v1.5H2V12zm5.5-1V3h1.5v8h-1.5zM8 1l4 4h-3v4H7V5H4l4-4z"/></svg>
+        导出全部日志
+      </button>
+      <button class="btn btn-outline" onclick="openModal('debug')">
+        <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a1 1 0 0 1 1 1v1.06A5.5 5.5 0 0 1 12.44 6H14a1 1 0 1 1 0 2h-1.12A5.48 5.48 0 0 1 13 10.5V12a1 1 0 1 1-2 0v-1H5v1a1 1 0 1 1-2 0v-1.5c0-.9.22-1.75.62-2.5H2a1 1 0 0 1 0-2h1.56A5.5 5.5 0 0 1 7 3.06V2a1 1 0 0 1 1-1zM5 8h6a3.5 3.5 0 0 0-6 0z"/></svg>
+        开启调试模式
+      </button>
+    </div>
+
+    <!-- Content -->
+    <div class="content">
+
+      <!-- ═══ Export Panel ═══ -->
+      <div id="panel-export">
+        <div class="section">
+          <div class="section-title">选择组件</div>
+          <div class="check-grid" id="export-checks">
+            <label class="check-item"><input type="checkbox" checked> dde-session</label>
+            <label class="check-item"><input type="checkbox" checked> dde-desktop</label>
+            <label class="check-item"><input type="checkbox" checked> dde-dock</label>
+            <label class="check-item"><input type="checkbox" checked> deepin-wm</label>
+            <label class="check-item"><input type="checkbox" checked> deepin-file-manager</label>
+            <label class="check-item"><input type="checkbox" checked> deepin-system-monitor</label>
+          </div>
+          <div style="display:flex; gap:6px; margin-top:8px;">
+            <button class="link-btn" onclick="toggleChecks('export-checks', true)">全选</button>
+            <button class="link-btn" onclick="toggleChecks('export-checks', false)">全不选</button>
+          </div>
+        </div>
+        <div class="section">
+          <div class="section-title">导出路径</div>
+          <div class="field-row">
+            <input class="text-field" type="text" value="~/deepin-doctor-logs.tar.gz" id="export-path">
+            <button class="btn btn-ghost" onclick="pickPath()" style="flex-shrink:0; padding:7px 14px;">
+              <svg viewBox="0 0 16 16" fill="currentColor" style="width:14px;height:14px;"><path d="M1 4v9h14V5H7.5L6 3.5H1V4zm0-1h4.5l1.5 1.5H15v10H1V3z"/></svg>
+              选择路径
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ Debug Panel ═══ -->
+      <div id="panel-debug" style="display:none;">
+        <div class="section">
+          <div class="section-title">调试级别</div>
+          <div class="level-group">
+            <label class="level-chip selected" onclick="selLv(this)">
+              <input type="radio" name="lv" value="info" checked> Info
+            </label>
+            <label class="level-chip" onclick="selLv(this)">
+              <input type="radio" name="lv" value="debug"> Debug
+            </label>
+            <label class="level-chip" onclick="selLv(this)">
+              <input type="radio" name="lv" value="warning"> Warning
+            </label>
+          </div>
+        </div>
+        <div class="section">
+          <div class="section-title">选择组件</div>
+          <div class="check-grid" id="debug-checks">
+            <label class="check-item"><input type="checkbox" checked> dde-session</label>
+            <label class="check-item"><input type="checkbox" checked> dde-desktop</label>
+            <label class="check-item"><input type="checkbox" checked> dde-dock</label>
+            <label class="check-item"><input type="checkbox" checked> deepin-wm</label>
+            <label class="check-item"><input type="checkbox" checked> deepin-file-manager</label>
+            <label class="check-item"><input type="checkbox" checked> deepin-system-monitor</label>
+          </div>
+          <div style="display:flex; gap:6px; margin-top:8px;">
+            <button class="link-btn" onclick="toggleChecks('debug-checks', true)">全选</button>
+            <button class="link-btn" onclick="toggleChecks('debug-checks', false)">全不选</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ── Modal: Export ── -->
+  <div class="modal-overlay" id="modal-export">
+    <div class="modal">
+      <div class="modal-icon green">
+        <svg viewBox="0 0 16 16" fill="currentColor"><path d="M2 12h12v1.5H2V12zm5.5-1V3h1.5v8h-1.5zM8 1l4 4h-3v4H7V5H4l4-4z"/></svg>
+      </div>
+      <div class="modal-title">导出全部日志</div>
+      <div class="modal-desc">将收集选中组件的日志并打包到指定路径。操作可能需要一些时间，取决于日志大小。</div>
+      <div class="modal-actions">
+        <button class="btn btn-primary" onclick="closeModal('export'); toast('正在导出日志...')">立即执行</button>
+        <button class="btn btn-ghost" onclick="closeModal('export'); toast('脚本已导出到 ~/export-logs.sh')">导出脚本</button>
+        <button class="btn btn-ghost" onclick="closeModal('export'); toast('命令已复制到剪贴板')">复制命令</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Modal: Debug ── -->
+  <div class="modal-overlay" id="modal-debug">
+    <div class="modal">
+      <div class="modal-icon blue">
+        <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a1 1 0 0 1 1 1v1.06A5.5 5.5 0 0 1 12.44 6H14a1 1 0 1 1 0 2h-1.12A5.48 5.48 0 0 1 13 10.5V12a1 1 0 1 1-2 0v-1H5v1a1 1 0 1 1-2 0v-1.5c0-.9.22-1.75.62-2.5H2a1 1 0 0 1 0-2h1.56A5.5 5.5 0 0 1 7 3.06V2a1 1 0 0 1 1-1zM5 8h6a3.5 3.5 0 0 0-6 0z"/></svg>
+      </div>
+      <div class="modal-title">开启调试模式</div>
+      <div class="modal-desc">将为选中组件开启调试级别的日志输出。开启后日志量会显著增加，排查完成后建议关闭。</div>
+      <div class="modal-actions">
+        <button class="btn btn-primary" onclick="closeModal('debug'); toast('调试模式已开启')">立即执行</button>
+        <button class="btn btn-ghost" onclick="closeModal('debug'); toast('脚本已导出到 ~/enable-debug.sh')">导出脚本</button>
+        <button class="btn btn-ghost" onclick="closeModal('debug'); toast('命令已复制到剪贴板')">复制命令</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+function switchNav(name, el) {
+  el.parentElement.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('panel-export').style.display = name === 'export' ? '' : 'none';
+  document.getElementById('panel-debug').style.display = name === 'debug' ? '' : 'none';
+}
+
+function selRC(card) {
+  card.parentElement.querySelectorAll('.radio-card').forEach(c => c.classList.remove('selected'));
+  card.classList.add('selected');
+  card.querySelector('input').checked = true;
+}
+
+function selLv(chip) {
+  chip.parentElement.querySelectorAll('.level-chip').forEach(c => c.classList.remove('selected'));
+  chip.classList.add('selected');
+  chip.querySelector('input').checked = true;
+}
+
+function toggleChecks(id, state) {
+  document.querySelectorAll('#' + id + ' input[type="checkbox"]').forEach(cb => cb.checked = state);
+}
+
+function openModal(type) {
+  document.getElementById('modal-' + type).classList.add('show');
+}
+
+function closeModal(type) {
+  document.getElementById('modal-' + type).classList.remove('show');
+}
+
+// Click overlay to close
+document.querySelectorAll('.modal-overlay').forEach(overlay => {
+  overlay.addEventListener('click', function(e) {
+    if (e.target === this) {
+      this.classList.remove('show');
+    }
+  });
+});
+
+function pickPath() {
+  // QML 实际实现中会调用 FileDialog
+  // 这里模拟选择路径
+  const path = prompt('选择导出路径', document.getElementById('export-path').value);
+  if (path) document.getElementById('export-path').value = path;
+}
+
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.classList.remove('show'), 2500);
+}
+</script>
+
+</body>
+</html>

@@ -1,6 +1,7 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
+import "../dtk"
 
 Item {
     id: root
@@ -18,7 +19,6 @@ Item {
         { id: "security",    name: qsTr("安全检查"),      icon: "🔒", desc: qsTr("用户权限、SUID 文件、开放端口安全审计"),   status: "planned", color: "brown" }
     ]
 
-    // Map color names to icon box background colors
     function iconBoxColor(colorName) {
         var map = {
             "blue":   "#e8f0fe",
@@ -59,53 +59,32 @@ Item {
                     width: Math.floor((grid.width - grid.spacing * (grid.columns - 1)) / grid.columns)
                     height: 110
 
-                    Rectangle {
-                        id: card
+                    MouseArea {
+                        id: cardMouseArea
                         anchors.fill: parent
-                        color: "#ffffff"
-                        border.color: cardMouseArea.containsMouse ? mainWindow.accentColor : "#e0e0e0"
-                        border.width: cardMouseArea.containsMouse ? 2 : 1
-                        radius: 8
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: root.moduleClicked(modelData.id)
+                    }
 
-                        Behavior on border.color {
-                            ColorAnimation { duration: 150 }
-                        }
-
-                        ToolTip {
-                            visible: cardMouseArea.containsMouse && (nameText.truncated || descText.truncated)
-                            text: {
-                                var parts = []
-                                if (nameText.truncated) parts.push(modelData.name)
-                                if (descText.truncated) parts.push(modelData.desc)
-                                return parts.join("\n")
-                            }
-                            delay: 600
-                        }
-
-                        MouseArea {
-                            id: cardMouseArea
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: root.moduleClicked(modelData.id)
-                        }
+                    DTKBoxPanel {
+                        anchors.fill: parent
+                        backgroundFlowsHovered: true
+                        hovered: cardMouseArea.containsMouse
 
                         ColumnLayout {
-                            id: cardContent
                             anchors.fill: parent
                             anchors.margins: 16
                             spacing: 8
 
-                            // Top row: icon box + name + badge
                             RowLayout {
                                 Layout.fillWidth: true
                                 spacing: 10
 
-                                // Colored icon box
                                 Rectangle {
                                     Layout.preferredWidth: 36
                                     Layout.preferredHeight: 36
-                                    radius: 8
+                                    radius: DTKStyle.control.radius
                                     color: root.iconBoxColor(modelData.color)
 
                                     Text {
@@ -115,9 +94,7 @@ Item {
                                     }
                                 }
 
-                                // Module name
                                 Text {
-                                    id: nameText
                                     text: modelData.name
                                     font.pixelSize: 13
                                     font.bold: true
@@ -126,31 +103,29 @@ Item {
                                     elide: Text.ElideRight
                                 }
 
-                                // Status badge
                                 Rectangle {
                                     Layout.preferredWidth: badgeLabel.implicitWidth + 12
                                     Layout.preferredHeight: badgeLabel.implicitHeight + 6
-                                    radius: 4
-                                    color: modelData.status === "ready" ? "#e8f5e9" : "#f5f5f5"
+                                    radius: DTKStyle.control.radius
+                                    color: modelData.status === "ready" ? "#e8f5e9" : Qt.rgba(0, 0, 0, 0.05)
 
                                     Text {
                                         id: badgeLabel
                                         anchors.centerIn: parent
                                         text: modelData.status === "ready" ? qsTr("可用") : qsTr("规划中")
                                         font.pixelSize: 10
-                                        color: modelData.status === "ready" ? mainWindow.successColor : mainWindow.mutedTextColor
+                                        color: modelData.status === "ready" ? mainWindow.successColor : Qt.rgba(0, 0, 0, 0.4)
                                     }
                                 }
                             }
 
-                            // Description - fixed 2 lines, ellipsis
                             Text {
                                 id: descText
                                 Layout.fillWidth: true
                                 Layout.fillHeight: true
                                 text: modelData.desc
                                 font.pixelSize: 11
-                                color: "#888888"
+                                color: Qt.rgba(0, 0, 0, 0.4)
                                 elide: Text.ElideRight
                                 wrapMode: Text.WordWrap
                                 lineHeight: 1.3

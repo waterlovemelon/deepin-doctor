@@ -1,6 +1,7 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
+import "../dtk"
 
 Item {
     id: root
@@ -27,7 +28,6 @@ Item {
         width: root.width
         spacing: 8
 
-        // Toolbar
         RowLayout {
             Layout.fillWidth: true
             spacing: 8
@@ -36,25 +36,16 @@ Item {
                 id: resultTabBar
                 Layout.fillWidth: true
                 currentIndex: root.showRawJson ? 1 : 0
-
-                TabButton {
-                    text: qsTr("Summary")
-                    width: implicitWidth
-                }
-
-                TabButton {
-                    text: qsTr("Raw")
-                    width: implicitWidth
-                }
+                TabButton { text: qsTr("Summary"); width: implicitWidth }
+                TabButton { text: qsTr("Raw"); width: implicitWidth }
             }
 
-            Button {
+            DTKButton {
                 text: qsTr("Copy")
                 onClicked: copyToClipboard()
             }
         }
 
-        // Content area
         StackLayout {
             Layout.fillWidth: true
             Layout.fillHeight: true
@@ -67,7 +58,7 @@ Item {
                 spacing: 4
                 model: resultKeys
 
-                delegate: ItemDelegate {
+                delegate: DTKItemDelegate {
                     width: summaryView.width
                     height: expanded ? expandedContent.height + 48 : 48
 
@@ -80,56 +71,52 @@ Item {
                             spacing: 8
 
                             Rectangle {
-                                width: 8
-                                height: 8
-                                radius: 4
+                                width: 8; height: 8; radius: 4
                                 color: getStatusColor(resultData[modelData])
                             }
 
-                            Label {
+                            Text {
                                 text: getModuleName(modelData)
                                 font.bold: true
+                                font.pixelSize: 13
+                                color: mainWindow.textColor
                             }
 
                             Item { Layout.fillWidth: true }
 
-                            Label {
+                            Text {
                                 text: expanded ? "▼" : "▶"
-                                color: mainWindow.mutedTextColor
+                                color: Qt.rgba(0, 0, 0, 0.4)
+                                font.pixelSize: 10
                             }
                         }
 
-                        Label {
+                        Text {
                             text: getModuleSummary(modelData)
-                            color: mainWindow.mutedTextColor
+                            color: Qt.rgba(0, 0, 0, 0.4)
                             visible: text !== ""
                             wrapMode: Text.WordWrap
+                            font.pixelSize: 12
                             Layout.fillWidth: true
                         }
 
-                        // Expanded content
                         Rectangle {
                             id: expandedContent
                             Layout.fillWidth: true
                             Layout.preferredHeight: 200
                             visible: expanded
-                            color: palette.base
-                            border.color: palette.mid
+                            color: "#ffffff"
+                            border.color: Qt.rgba(0, 0, 0, 0.08)
                             border.width: 1
+                            radius: DTKStyle.control.radius
 
                             ScrollView {
                                 anchors.fill: parent
                                 anchors.margins: 4
-
                                 TextArea {
-                                    text: resultData[modelData]
-                                        ? JSON.stringify(resultData[modelData], null, 2)
-                                        : ""
-                                    readOnly: true
-                                    selectByMouse: true
-                                    wrapMode: TextEdit.WrapAnywhere
-                                    font.family: "monospace"
-                                    font.pixelSize: 11
+                                    text: resultData[modelData] ? JSON.stringify(resultData[modelData], null, 2) : ""
+                                    readOnly: true; selectByMouse: true; wrapMode: TextEdit.WrapAnywhere
+                                    font.family: "monospace"; font.pixelSize: 11
                                 }
                             }
                         }
@@ -138,11 +125,11 @@ Item {
                     onClicked: expanded = !expanded
                 }
 
-                Label {
+                Text {
                     anchors.centerIn: parent
                     visible: resultKeys.length === 0
                     text: qsTr("No results yet")
-                    color: mainWindow.mutedTextColor
+                    color: Qt.rgba(0, 0, 0, 0.4)
                 }
             }
 
@@ -151,17 +138,13 @@ Item {
                 TextArea {
                     id: rawTextArea
                     text: resultText !== "" ? resultText : derivedResultText
-                    readOnly: true
-                    selectByMouse: true
-                    wrapMode: TextEdit.WrapAnywhere
-                    font.family: "monospace"
-                    font.pixelSize: 12
+                    readOnly: true; selectByMouse: true; wrapMode: TextEdit.WrapAnywhere
+                    font.family: "monospace"; font.pixelSize: 12
                 }
             }
         }
 
-        // Status label
-        Label {
+        Text {
             id: statusLabel
             Layout.fillWidth: true
             text: ""
@@ -170,14 +153,13 @@ Item {
         }
     }
 
-    // Helper functions
     function getStatusColor(data) {
-        if (!data) return palette.mid
+        if (!data) return Qt.rgba(0, 0, 0, 0.1)
         var lvl = data.level || data.status || ""
         if (lvl === "ok" || lvl === "success") return mainWindow.successColor
         if (lvl === "warning") return mainWindow.warningColor
         if (lvl === "error" || lvl === "fail") return mainWindow.errorColor
-        return palette.mid
+        return Qt.rgba(0, 0, 0, 0.1)
     }
 
     function getModuleName(key) {
@@ -191,7 +173,6 @@ Item {
         return d.description || d.message || d.summary || ""
     }
 
-    // Public API
     function setResult(data) {
         resultTextExplicitlySet = false
         resultData = data
@@ -201,11 +182,7 @@ Item {
     function setResultText(text) {
         resultTextExplicitlySet = true
         resultText = text
-        try {
-            resultData = JSON.parse(text)
-        } catch (e) {
-            resultData = null
-        }
+        try { resultData = JSON.parse(text) } catch (e) { resultData = null }
     }
 
     function copyToClipboard() {
@@ -213,17 +190,11 @@ Item {
             ? (resultText !== "" ? resultText : derivedResultText)
             : (resultData ? JSON.stringify(resultData, null, 2) : "")
         if (txt) {
-            rawTextArea.selectAll()
-            rawTextArea.copy()
-            rawTextArea.deselect()
+            rawTextArea.selectAll(); rawTextArea.copy(); rawTextArea.deselect()
             statusLabel.text = qsTr("Copied to clipboard!")
             copyTimer.restart()
         }
     }
 
-    Timer {
-        id: copyTimer
-        interval: 2000
-        onTriggered: statusLabel.text = ""
-    }
+    Timer { id: copyTimer; interval: 2000; onTriggered: statusLabel.text = "" }
 }

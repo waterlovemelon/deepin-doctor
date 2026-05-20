@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>Deepin Doctor - 返回按钮方案选择</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: "Noto Sans SC", "Microsoft YaHei", sans-serif; background: #f0f0f0; color: #1a1a1a; padding: 32px; }
+
+  h1 { font-size: 20px; margin-bottom: 6px; }
+  h2 { font-size: 13px; color: #999; margin-bottom: 32px; font-weight: normal; }
+  h3 { font-size: 14px; color: #333; margin: 40px 0 16px; font-weight: bold; }
+
+  /* ── TopBar ── */
+  .topbar {
+    height: 48px; min-height: 48px; display: flex; align-items: center;
+    padding: 0 24px; border-bottom: 1px solid rgba(0,0,0,0.08);
+    background: #fff; gap: 12px;
+  }
+  .topbar .title {
+    font-size: 14px; font-weight: bold; color: #1a1a1a; flex: 1;
+  }
+  .topbar .actions { display: flex; gap: 8px; }
+
+  /* ── Common button ── */
+  .btn {
+    height: 32px; padding: 0 16px; border-radius: 8px; font-size: 13px;
+    border: 1px solid rgba(0,0,0,0.1); background: #f7f7f7; cursor: pointer;
+    color: rgba(0,0,0,0.7); font-weight: bold; display: inline-flex;
+    align-items: center; gap: 4px;
+  }
+  .btn:hover { background: #e1e1e1; }
+  .btn.primary { background: #0066cc; color: #fff; border-color: transparent; }
+
+  /* ══════════════════════════════════════════ */
+  /*  Variant styles                           */
+  /* ══════════════════════════════════════════ */
+
+  /* A: 文字链接 — 无边框无背景, 纯文字 */
+  .back-a {
+    background: none; border: none; cursor: pointer;
+    font-size: 13px; color: rgba(0,0,0,0.5); padding: 4px 0;
+    display: inline-flex; align-items: center; gap: 2px;
+  }
+  .back-a:hover { color: #0066cc; }
+  .back-a .arrow { font-size: 16px; line-height: 1; }
+
+  /* B: 图标按钮 — 圆角方形, 只有箭头 */
+  .back-b {
+    width: 32px; height: 32px; border-radius: 8px;
+    background: none; border: 1px solid transparent; cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 16px; color: rgba(0,0,0,0.5);
+  }
+  .back-b:hover { background: rgba(0,0,0,0.05); border-color: rgba(0,0,0,0.08); }
+
+  /* C: 圆形图标 — 圆形背景, 箭头 */
+  .back-c {
+    width: 28px; height: 28px; border-radius: 50%;
+    background: rgba(0,0,0,0.05); border: none; cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 14px; color: rgba(0,0,0,0.5);
+  }
+  .back-c:hover { background: rgba(0,0,0,0.1); }
+
+  /* D: 面包屑 — 首页 > 当前页 */
+  .back-d {
+    background: none; border: none; cursor: pointer;
+    font-size: 13px; color: rgba(0,0,0,0.4); padding: 4px 0;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .back-d .home { color: rgba(0,0,0,0.4); }
+  .back-d .home:hover { color: #0066cc; }
+  .back-d .sep { color: rgba(0,0,0,0.2); font-size: 11px; }
+  .back-d .current { color: rgba(0,0,0,0.7); font-weight: bold; }
+
+  /* E: 极简箭头 — 只有 ←, 无任何装饰 */
+  .back-e {
+    background: none; border: none; cursor: pointer;
+    font-size: 18px; color: rgba(0,0,0,0.3); padding: 4px;
+    line-height: 1;
+  }
+  .back-e:hover { color: rgba(0,0,0,0.6); }
+
+  /* F: 带文字的圆角按钮 — 和 DTKButton 一致但更轻 */
+  .back-f {
+    height: 28px; padding: 0 10px; border-radius: 6px;
+    background: none; border: 1px solid rgba(0,0,0,0.08); cursor: pointer;
+    font-size: 12px; color: rgba(0,0,0,0.5);
+    display: inline-flex; align-items: center; gap: 3px;
+  }
+  .back-f:hover { background: rgba(0,0,0,0.04); border-color: rgba(0,0,0,0.15); color: rgba(0,0,0,0.7); }
+  .back-f .arrow { font-size: 13px; }
+
+  /* ── Variant row ── */
+  .variant-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 24px;
+    margin-bottom: 40px;
+  }
+  .variant-card {
+    background: #fff; border-radius: 12px; overflow: hidden;
+    box-shadow: 0 1px 8px rgba(0,0,0,0.08);
+  }
+  .variant-label {
+    padding: 12px 16px; font-size: 13px; font-weight: bold;
+    color: #666; background: #fafafa; border-bottom: 1px solid rgba(0,0,0,0.05);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .variant-label .tag {
+    font-size: 10px; background: #e8f0fe; color: #0066cc;
+    padding: 2px 6px; border-radius: 4px; font-weight: normal;
+  }
+  .variant-preview { padding: 0; }
+
+  /* ── Full page preview ── */
+  .page-preview {
+    width: 960px; height: 480px; background: #fff; border-radius: 12px;
+    overflow: hidden; box-shadow: 0 2px 16px rgba(0,0,0,0.1); margin-bottom: 32px;
+    display: flex; flex-direction: column;
+  }
+  .page-body { display: flex; flex: 1; overflow: hidden; }
+  .sidebar {
+    width: 190px; min-width: 190px; border-right: 1px solid rgba(0,0,0,0.08);
+    background: rgba(0,0,0,0.02); display: flex; flex-direction: column;
+  }
+  .sidebar .nav-title {
+    height: 40px; display: flex; align-items: center; padding: 0 10px;
+    font-size: 11px; font-weight: bold; color: rgba(0,0,0,0.4);
+  }
+  .nav-item {
+    height: 36px; display: flex; align-items: center; padding: 0 10px;
+    font-size: 13px; color: rgba(0,0,0,0.7); cursor: pointer; border-radius: 8px;
+    margin: 0 4px;
+  }
+  .nav-item:hover { background: rgba(0,0,0,0.05); }
+  .nav-item.active { background: #0066cc; color: #fff; font-weight: bold; }
+  .nav-item .icon { margin-right: 8px; font-size: 12px; }
+  .page-content { flex: 1; overflow: auto; padding: 24px; }
+
+  .sep { width: 1px; height: 20px; background: rgba(0,0,0,0.08); }
+</style>
+</head>
+<body>
+
+<h1>返回按钮方案</h1>
+<h2>从以下 6 种方案中选择, 点击效果可 hover 预览</h2>
+
+<!-- ════════════════════════════════════════ -->
+<h3>单个方案预览 (hover 看交互效果)</h3>
+<!-- ════════════════════════════════════════ -->
+
+<div class="variant-grid">
+
+  <!-- A: 文字链接 -->
+  <div class="variant-card">
+    <div class="variant-label">A. 文字链接 <span class="tag">推荐</span></div>
+    <div class="variant-preview">
+      <div class="topbar">
+        <button class="back-a"><span class="arrow">←</span> 返回</button>
+        <div class="sep"></div>
+        <span class="title">🌐 网络</span>
+        <span style="flex:1"></span>
+        <div class="actions">
+          <button class="btn primary">采集</button>
+          <button class="btn">检测</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- B: 图标按钮 -->
+  <div class="variant-card">
+    <div class="variant-label">B. 图标按钮 <span class="tag">推荐</span></div>
+    <div class="variant-preview">
+      <div class="topbar">
+        <button class="back-b">←</button>
+        <span class="title">🌐 网络</span>
+        <span style="flex:1"></span>
+        <div class="actions">
+          <button class="btn primary">采集</button>
+          <button class="btn">检测</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- C: 圆形图标 -->
+  <div class="variant-card">
+    <div class="variant-label">C. 圆形图标</div>
+    <div class="variant-preview">
+      <div class="topbar">
+        <button class="back-c">←</button>
+        <span class="title">🌐 网络</span>
+        <span style="flex:1"></span>
+        <div class="actions">
+          <button class="btn primary">采集</button>
+          <button class="btn">检测</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- D: 面包屑 -->
+  <div class="variant-card">
+    <div class="variant-label">D. 面包屑导航</div>
+    <div class="variant-preview">
+      <div class="topbar">
+        <div class="back-d">
+          <span class="home">首页</span>
+          <span class="sep">›</span>
+          <span class="current">网络</span>
+        </div>
+        <span style="flex:1"></span>
+        <div class="actions">
+          <button class="btn primary">采集</button>
+          <button class="btn">检测</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- E: 极简箭头 -->
+  <div class="variant-card">
+    <div class="variant-label">E. 极简箭头</div>
+    <div class="variant-preview">
+      <div class="topbar">
+        <button class="back-e">←</button>
+        <span class="title">🌐 网络</span>
+        <span style="flex:1"></span>
+        <div class="actions">
+          <button class="btn primary">采集</button>
+          <button class="btn">检测</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- F: 轻量圆角按钮 -->
+  <div class="variant-card">
+    <div class="variant-label">F. 轻量圆角按钮</div>
+    <div class="variant-preview">
+      <div class="topbar">
+        <button class="back-f"><span class="arrow">←</span> 返回</button>
+        <div class="sep"></div>
+        <span class="title">🌐 网络</span>
+        <span style="flex:1"></span>
+        <div class="actions">
+          <button class="btn primary">采集</button>
+          <button class="btn">检测</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ════════════════════════════════════════ -->
+<h3>完整页面效果对比 (方案 A vs B)</h3>
+<!-- ════════════════════════════════════════ -->
+
+<!-- 方案 A: 文字链接 -->
+<div style="margin-bottom:8px;font-size:13px;color:#666;font-weight:bold">方案 A — 文字链接</div>
+<div class="page-preview">
+  <div class="topbar">
+    <button class="back-a"><span class="arrow">←</span> 返回</button>
+    <div class="sep"></div>
+    <span class="title">🌐 网络</span>
+    <span style="flex:1"></span>
+    <div class="actions">
+      <button class="btn primary">采集</button>
+      <button class="btn">检测</button>
+    </div>
+  </div>
+  <div class="page-body">
+    <div class="sidebar">
+      <div class="nav-title">诊断模块</div>
+      <div class="nav-item"><span class="icon">📋</span>日志</div>
+      <div class="nav-item active"><span class="icon">🌐</span>网络</div>
+      <div class="nav-item"><span class="icon">⚙️</span>系统</div>
+      <div class="nav-item"><span class="icon">🌏</span>环境</div>
+    </div>
+    <div class="page-content">
+      <div style="color:rgba(0,0,0,0.4);text-align:center;padding-top:80px">内容区域</div>
+    </div>
+  </div>
+</div>
+
+<!-- 方案 B: 图标按钮 -->
+<div style="margin-bottom:8px;font-size:13px;color:#666;font-weight:bold">方案 B — 图标按钮</div>
+<div class="page-preview">
+  <div class="topbar">
+    <button class="back-b">←</button>
+    <span class="title">🌐 网络</span>
+    <span style="flex:1"></span>
+    <div class="actions">
+      <button class="btn primary">采集</button>
+      <button class="btn">检测</button>
+    </div>
+  </div>
+  <div class="page-body">
+    <div class="sidebar">
+      <div class="nav-title">诊断模块</div>
+      <div class="nav-item"><span class="icon">📋</span>日志</div>
+      <div class="nav-item active"><span class="icon">🌐</span>网络</div>
+      <div class="nav-item"><span class="icon">⚙️</span>系统</div>
+      <div class="nav-item"><span class="icon">🌏</span>环境</div>
+    </div>
+    <div class="page-content">
+      <div style="color:rgba(0,0,0,0.4);text-align:center;padding-top:80px">内容区域</div>
+    </div>
+  </div>
+</div>
+
+<!-- 方案 F: 轻量圆角按钮 -->
+<div style="margin-bottom:8px;font-size:13px;color:#666;font-weight:bold">方案 F — 轻量圆角按钮</div>
+<div class="page-preview">
+  <div class="topbar">
+    <button class="back-f"><span class="arrow">←</span> 返回</button>
+    <div class="sep"></div>
+    <span class="title">🌐 网络</span>
+    <span style="flex:1"></span>
+    <div class="actions">
+      <button class="btn primary">采集</button>
+      <button class="btn">检测</button>
+    </div>
+  </div>
+  <div class="page-body">
+    <div class="sidebar">
+      <div class="nav-title">诊断模块</div>
+      <div class="nav-item"><span class="icon">📋</span>日志</div>
+      <div class="nav-item active"><span class="icon">🌐</span>网络</div>
+      <div class="nav-item"><span class="icon">⚙️</span>系统</div>
+      <div class="nav-item"><span class="icon">🌏</span>环境</div>
+    </div>
+    <div class="page-content">
+      <div style="color:rgba(0,0,0,0.4);text-align:center;padding-top:80px">内容区域</div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

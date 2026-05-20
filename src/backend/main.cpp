@@ -1,4 +1,5 @@
 #include "DBusService.h"
+#include "LogDBusService.h"
 #include "ModuleManager.h"
 #include "PluginManager.h"
 #include "ModuleInterface.h"
@@ -34,6 +35,14 @@ int main(int argc, char* argv[])
 
     if (!dbusService.registerService()) {
         qCritical() << "Failed to register DBus service";
+        return 1;
+    }
+
+    // Create Log DBus service
+    LogDBusService logDBusService;
+
+    if (!logDBusService.registerService()) {
+        qCritical() << "Failed to register Log DBus service";
         return 1;
     }
 

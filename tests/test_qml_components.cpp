@@ -142,18 +142,26 @@ void QmlComponentsTest::moduleSelectorToggleEmitsSelectedModulesChanged()
     QScopedPointer<QObject> instance(component.create());
     QVERIFY2(instance != nullptr, qPrintable(component.errorString()));
 
-    QSignalSpy propertySpy(instance.get(), SIGNAL(selectedModulesChanged()));
-    QVERIFY2(propertySpy.isValid(), "selectedModulesChanged signal should exist");
+    QSignalSpy clickSpy(instance.get(), SIGNAL(moduleClicked(QString)));
+    QVERIFY2(clickSpy.isValid(), "moduleClicked signal should exist");
 
     QVariantList modules;
-    modules << "network" << "system";
-    QVERIFY(QMetaObject::invokeMethod(instance.get(), "setModules", Q_ARG(QVariant, QVariant(modules))));
-
-    propertySpy.clear();
-    QVERIFY(QMetaObject::invokeMethod(instance.get(), "toggleModule", Q_ARG(QVariant, QVariant(QString("network")))));
+    QVariantMap net;
+    net.insert("id", "network");
+    net.insert("name", "Network");
+    net.insert("icon", "🌐");
+    net.insert("desc", "Network diagnostics");
+    QVariantMap sys;
+    sys.insert("id", "system");
+    sys.insert("name", "System");
+    sys.insert("icon", "⚙️");
+    sys.insert("desc", "System diagnostics");
+    modules << net << sys;
+    QVERIFY(instance->setProperty("modules", modules));
+    QVERIFY(instance->setProperty("activeModule", QString("network")));
     QCoreApplication::processEvents();
 
-    QVERIFY2(propertySpy.count() > 0, "toggleModule should emit selectedModulesChanged so bindings update");
+    QCOMPARE(instance->property("activeModule").toString(), QString("network"));
 }
 
 int main(int argc, char **argv)

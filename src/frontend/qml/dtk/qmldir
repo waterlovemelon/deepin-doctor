@@ -1,0 +1,9 @@
+module dtk.style
+singleton DTKStyle 1.0 DTKStyle.qml
+DTKHighlightPanel 1.0 DTKHighlightPanel.qml
+DTKItemDelegate 1.0 DTKItemDelegate.qml
+DTKBoxPanel 1.0 DTKBoxPanel.qml
+DTKButton 1.0 DTKButton.qml
+DTKCheckBox 1.0 DTKCheckBox.qml
+DTKTextField 1.0 DTKTextField.qml
+DTKProgressBar 1.0 DTKProgressBar.qml

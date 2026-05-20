@@ -1,19 +1,20 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
+import QtQuick.Dialogs 1.3
 import "../components"
+import "../dtk"
 
-Item {
+PageLayout {
     id: root
 
-    // Set externally to display a specific module
     property string moduleId: ""
-
-    // Internal state
     property var currentModuleData: null
     property bool isReadyModule: currentModuleData && currentModuleData.status === "ready"
     property bool isPlannedModule: currentModuleData && currentModuleData.status === "planned"
+    property bool isLogsModule: moduleId === "logs"
 
+    // ── Standard module state ──
     property string currentTaskId: ""
     property bool isCollecting: false
     property bool isDetecting: false
@@ -22,7 +23,14 @@ Item {
     property var collectResult: null
     property var detectResult: null
 
-    // All modules for sidebar
+    // ── Log tools state ──
+    property string currentLogPanel: "export"
+    property var logComponents: []
+    property var selectedLogComponents: ({})
+    property string debugLevel: "info"
+    property bool isLogOperating: false
+    property string logStatusMessage: ""
+
     property var allModules: [
         { id: "logs", name: "日志", icon: "📋", desc: "系统日志、内核日志、应用日志分析", status: "ready", color: "red",
           summary: [
@@ -54,15 +62,16 @@ Item {
         { id: "security", name: "安全检查", icon: "🔒", desc: "用户权限、SUID 文件、开放端口安全审计", status: "planned", color: "brown", summary: [] }
     ]
 
-    signal backRequested()
     signal moduleSwitchRequested(string moduleId)
     signal exportRequested(var resultData)
 
-    onModuleIdChanged: updateModuleData()
+    title: currentModuleData ? currentModuleData.icon + " " + currentModuleData.name : ""
 
+    onModuleIdChanged: updateModuleData()
     Component.onCompleted: updateModuleData()
 
     function updateModuleData() {
+        // Reset standard module state
         collectResult = null
         detectResult = null
         isCollecting = false
@@ -70,6 +79,11 @@ Item {
         collectProgress = 0.0
         progressDetail = ""
         currentTaskId = ""
+
+        // Reset log tools state
+        logStatusMessage = ""
+        isLogOperating = false
+        currentLogPanel = "export"
 
         for (var i = 0; i < allModules.length; i++) {
             if (allModules[i].id === moduleId) {
@@ -80,14 +94,37 @@ Item {
         currentModuleData = null
     }
 
-    function getIconBgColor(iconBg) {
-        switch (iconBg) {
-        case "blue": return "#e8f0fe"
-        case "green": return "#e8f5e9"
-        case "red": return "#ffebee"
-        case "orange": return "#fff3e0"
-        default: return mainWindow.elevatedSurfaceColor
+    // Init log components when logs module is entered
+    onIsLogsModuleChanged: {
+        if (isLogsModule) initLogComponents()
+    }
+
+    function initLogComponents() {
+        logComponents = logBackend.listComponents()
+        var map = {}
+        for (var i = 0; i < logComponents.length; i++)
+            map[logComponents[i]] = true
+        selectedLogComponents = map
+    }
+
+    function getSelectedLogComponents() {
+        var result = []
+        for (var key in selectedLogComponents) {
+            if (selectedLogComponents[key]) result.push(key)
         }
+        return result
+    }
+
+    function selectAllLogs(state) {
+        var map = {}
+        for (var i = 0; i < logComponents.length; i++)
+            map[logComponents[i]] = state
+        selectedLogComponents = map
+    }
+
+    function getIconBgColor(iconBg) {
+        var map = { "blue": "#e8f0fe", "green": "#e8f5e9", "red": "#ffebee", "orange": "#fff3e0" }
+        return map[iconBg] || "#f5f5f5"
     }
 
     function getValueColor(cls) {
@@ -101,585 +138,682 @@ Item {
 
     function startCollection() {
         if (!isReadyModule || isCollecting || isDetecting) return
-
         isCollecting = true
         isDetecting = false
         collectProgress = 0.0
         progressDetail = ""
         collectResult = null
-
         currentTaskId = backend.collect([moduleId])
-
-        if (currentTaskId === "") {
-            isCollecting = false
-        }
+        if (currentTaskId === "") isCollecting = false
     }
 
     function startDetection() {
         if (!isReadyModule || isCollecting || isDetecting) return
-
         isDetecting = true
         isCollecting = false
         detectResult = null
         collectProgress = 0.0
         progressDetail = qsTr("正在检测...")
-
         var result = backend.detect([moduleId])
-
-        try {
-            detectResult = JSON.parse(result)
-        } catch (e) {
-            console.error("Detection failed:", e)
-        }
+        try { detectResult = JSON.parse(result) } catch (e) { console.error("Detection failed:", e) }
         isDetecting = false
         progressDetail = ""
     }
 
     Connections {
         target: backend
-
         function onCollectProgress(taskId, module, progress) {
+            if (taskId === currentTaskId) { collectProgress = progress; progressDetail = module }
+        }
+        function onCollectFinished(taskId, result) {
             if (taskId === currentTaskId) {
-                collectProgress = progress
-                progressDetail = module
+                isCollecting = false; collectProgress = 1.0; progressDetail = ""
+                try { collectResult = JSON.parse(result) } catch (e) { console.error("Failed to parse collect result:", e) }
+            }
+        }
+    }
+
+    Connections {
+        target: logBackend
+        function onExportFinished(success, path) {
+            isLogOperating = false
+            logStatusMessage = success ? qsTr("导出成功：") + path : qsTr("导出失败")
+        }
+        function onDebugModeChanged(component, enabled) {}
+    }
+
+    // ── TopBar actions ──
+    // Standard module actions
+    topbarActions: RowLayout {
+        spacing: 8
+
+        // Standard module actions (collect/detect/export)
+        RowLayout {
+            spacing: 8
+            visible: isReadyModule && !isLogsModule
+
+            DTKButton {
+                text: qsTr("采集")
+                highlighted: true
+                enabled: !isCollecting && !isDetecting
+                onClicked: startCollection()
+            }
+
+            DTKButton {
+                text: qsTr("检测")
+                enabled: !isCollecting && !isDetecting
+                onClicked: startDetection()
+            }
+
+            DTKButton {
+                text: qsTr("导出")
+                enabled: collectResult !== null && !isCollecting && !isDetecting
+                visible: collectResult !== null
+                onClicked: root.exportRequested(collectResult)
             }
         }
 
-        function onCollectFinished(taskId, result) {
-            if (taskId === currentTaskId) {
-                isCollecting = false
-                collectProgress = 1.0
-                progressDetail = ""
+        // Log tools actions
+        RowLayout {
+            spacing: 8
+            visible: isLogsModule
 
-                try {
-                    collectResult = JSON.parse(result)
-                } catch (e) {
-                    console.error("Failed to parse collect result:", e)
+            DTKButton {
+                text: qsTr("导出全部日志")
+                highlighted: true
+                onClicked: exportLogModal.visible = true
+            }
+
+            DTKButton {
+                text: qsTr("开启调试模式")
+                onClicked: debugLogModal.visible = true
+            }
+        }
+    }
+
+    // ── Sidebar ──
+    sidebarContent: ColumnLayout {
+        anchors.fill: parent
+        anchors.margins: DTKStyle.settings.navigation.margin
+        spacing: DTKStyle.control.spacing
+
+        Text {
+            text: qsTr("诊断模块")
+            font.pixelSize: 14
+            font.bold: true
+            color: Qt.rgba(0, 0, 0, 0.7)
+        }
+
+        ModuleSelector {
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            activeModule: root.moduleId
+            modules: root.allModules
+            onModuleClicked: function(clickedModuleId) {
+                if (clickedModuleId !== root.moduleId) root.moduleSwitchRequested(clickedModuleId)
+            }
+        }
+    }
+
+    // ── Content ──
+
+    // Standard module content (collect/detect/results)
+    Flickable {
+        anchors.fill: parent
+        visible: !isLogsModule
+        contentWidth: width
+        contentHeight: contentColumn.implicitHeight + 32
+        clip: true
+        boundsBehavior: Flickable.StopAtBounds
+
+        ColumnLayout {
+            id: contentColumn
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: parent.top
+            anchors.margins: 24
+            spacing: 16
+
+            // Summary Cards Row
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 12
+                visible: isReadyModule && currentModuleData && currentModuleData.summary.length > 0
+
+                Repeater {
+                    model: currentModuleData ? currentModuleData.summary : []
+                    delegate: DTKBoxPanel {
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 76
+
+                        RowLayout {
+                            anchors.fill: parent
+                            anchors.margins: 12
+                            spacing: 10
+
+                            Rectangle {
+                                Layout.preferredWidth: 32
+                                Layout.preferredHeight: 32
+                                radius: DTKStyle.control.radius
+                                color: getIconBgColor(modelData.iconBg)
+                                Text {
+                                    anchors.centerIn: parent
+                                    text: modelData.icon
+                                    font.pixelSize: 16
+                                    fontSizeMode: Text.Fit
+                                    minimumPixelSize: 10
+                                }
+                            }
+
+                            ColumnLayout {
+                                spacing: 2
+                                Text { text: modelData.label; font.pixelSize: 11; color: Qt.rgba(0, 0, 0, 0.4) }
+                                Text { text: modelData.value; font.pixelSize: 14; font.bold: true; color: getValueColor(modelData.cls) }
+                            }
+                            Item { Layout.fillWidth: true }
+                        }
+                    }
+                }
+            }
+
+            // Progress Area
+            DTKBoxPanel {
+                Layout.fillWidth: true
+                Layout.preferredHeight: progressColumn.implicitHeight + 32
+                visible: isCollecting || isDetecting
+
+                ColumnLayout {
+                    id: progressColumn
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.top: parent.top
+                    anchors.margins: 16
+                    spacing: 8
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 10
+
+                        Item {
+                            Layout.preferredWidth: 20
+                            Layout.preferredHeight: 20
+                            Rectangle { anchors.fill: parent; radius: width / 2; color: "transparent"; border.color: DTKStyle.highlightColor; border.width: 2; opacity: 0.3 }
+                            Rectangle {
+                                anchors.fill: parent; radius: width / 2; color: "transparent"; border.color: DTKStyle.highlightColor; border.width: 2
+                                RotationAnimation on rotation { from: 0; to: 360; duration: 1000; loops: Animation.Infinite }
+                            }
+                        }
+
+                        Text { text: isDetecting ? qsTr("正在检测...") : qsTr("正在采集..."); font.bold: true; font.pixelSize: 13; color: mainWindow.textColor }
+                        Item { Layout.fillWidth: true }
+                        Text { text: qsTr("%1%").arg(Math.round(collectProgress * 100)); font.bold: true; font.pixelSize: 13; color: DTKStyle.highlightColor }
+                    }
+
+                    DTKProgressBar { Layout.fillWidth: true; value: collectProgress; from: 0; to: 1 }
+                    Text { text: progressDetail; font.pixelSize: 12; color: Qt.rgba(0, 0, 0, 0.4); visible: progressDetail !== "" }
+                }
+            }
+
+            // Results Area
+            DTKBoxPanel {
+                Layout.fillWidth: true
+                Layout.preferredHeight: Math.max(300, resultsColumn.implicitHeight + 32)
+                visible: collectResult !== null || detectResult !== null
+
+                ColumnLayout {
+                    id: resultsColumn
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.top: parent.top
+                    anchors.margins: 16
+                    spacing: 12
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 12
+
+                        TabBar {
+                            id: resultTabBar
+                            Layout.fillWidth: true
+                            TabButton { text: qsTr("采集结果"); enabled: collectResult !== null; width: implicitWidth }
+                            TabButton { text: qsTr("检测结果"); enabled: detectResult !== null; width: implicitWidth }
+                        }
+
+                        Rectangle {
+                            Layout.preferredWidth: badgeLabel.implicitWidth + 16
+                            Layout.preferredHeight: badgeLabel.implicitHeight + 8
+                            radius: 10
+                            color: {
+                                if (resultTabBar.currentIndex === 0 && collectResult) return mainWindow.successColor
+                                if (resultTabBar.currentIndex === 1 && detectResult) {
+                                    var hasIssues = false
+                                    if (typeof detectResult === "object") {
+                                        for (var key in detectResult) {
+                                            var item = detectResult[key]
+                                            if (item && (item.level === "error" || item.level === "warning" || item.status === "fail")) { hasIssues = true; break }
+                                        }
+                                    }
+                                    return hasIssues ? mainWindow.warningColor : mainWindow.successColor
+                                }
+                                return mainWindow.successColor
+                            }
+                            Text {
+                                id: badgeLabel
+                                anchors.centerIn: parent
+                                text: {
+                                    if (resultTabBar.currentIndex === 0 && collectResult) return qsTr("已完成")
+                                    if (resultTabBar.currentIndex === 1 && detectResult) {
+                                        var hasIssues = false
+                                        if (typeof detectResult === "object") {
+                                            for (var key in detectResult) {
+                                                var item = detectResult[key]
+                                                if (item && (item.level === "error" || item.level === "warning" || item.status === "fail")) { hasIssues = true; break }
+                                            }
+                                        }
+                                        return hasIssues ? qsTr("有异常") : qsTr("正常")
+                                    }
+                                    return ""
+                                }
+                                color: "#ffffff"; font.pixelSize: 11; font.bold: true
+                            }
+                        }
+                    }
+
+                    StackLayout {
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        currentIndex: resultTabBar.currentIndex
+                        ResultView { resultData: collectResult }
+                        ResultView { resultData: detectResult }
+                    }
+                }
+            }
+
+            // Empty State (ready)
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 200
+                color: "transparent"
+                visible: isReadyModule && collectResult === null && detectResult === null && !isCollecting && !isDetecting
+                ColumnLayout {
+                    anchors.centerIn: parent; spacing: 12
+                    Text { text: "🔍"; font.pixelSize: 48; Layout.alignment: Qt.AlignHCenter }
+                    Text { text: qsTr('点击上方"采集"或"检测"开始诊断'); font.pixelSize: 14; color: Qt.rgba(0, 0, 0, 0.4); Layout.alignment: Qt.AlignHCenter }
+                }
+            }
+
+            // Empty State (planned)
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 200
+                color: "transparent"
+                visible: isPlannedModule
+                ColumnLayout {
+                    anchors.centerIn: parent; spacing: 12
+                    Text { text: "🚧"; font.pixelSize: 48; Layout.alignment: Qt.AlignHCenter }
+                    Text { text: qsTr("该模块正在规划中，敬请期待"); font.pixelSize: 14; color: Qt.rgba(0, 0, 0, 0.4); Layout.alignment: Qt.AlignHCenter }
+                }
+            }
+
+            Item { Layout.fillHeight: true; Layout.preferredHeight: 16 }
+        }
+    }
+
+    // ── Log tools content ──
+    Item {
+        anchors.fill: parent
+        visible: isLogsModule
+
+        // Tab bar
+        RowLayout {
+            id: logTabBar
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: parent.top
+            anchors.leftMargin: 24
+            anchors.rightMargin: 24
+            anchors.topMargin: 16
+            spacing: 0
+
+            Repeater {
+                model: [
+                    { label: qsTr("导出日志"), value: "export" },
+                    { label: qsTr("调试模式"), value: "debug" }
+                ]
+
+                delegate: Rectangle {
+                    Layout.preferredWidth: logTabLabel.implicitWidth + 24
+                    Layout.preferredHeight: 32
+                    radius: 6
+                    color: root.currentLogPanel === modelData.value ? Qt.rgba(0, 0.4, 0.8, 0.1) : "transparent"
+
+                    Text {
+                        id: logTabLabel
+                        anchors.centerIn: parent
+                        text: modelData.label
+                        font.pixelSize: 13
+                        font.bold: root.currentLogPanel === modelData.value
+                        color: root.currentLogPanel === modelData.value ? DTKStyle.highlightColor : Qt.rgba(0, 0, 0, 0.5)
+                    }
+
+                    MouseArea {
+                        anchors.fill: parent
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: root.currentLogPanel = modelData.value
+                    }
+                }
+            }
+
+            Item { Layout.fillWidth: true }
+        }
+
+        // Export panel
+        Flickable {
+            id: logExportPanel
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: logTabBar.bottom
+            anchors.bottom: parent.bottom
+            visible: currentLogPanel === "export"
+            contentWidth: width
+            contentHeight: logExportColumn.implicitHeight + 48
+            clip: true
+            boundsBehavior: Flickable.StopAtBounds
+
+            ColumnLayout {
+                id: logExportColumn
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.top: parent.top
+                anchors.margins: 24
+                spacing: 20
+
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 10
+
+                    Text { text: qsTr("选择组件"); font.pixelSize: 12; font.bold: true; color: Qt.rgba(0, 0, 0, 0.4) }
+                    Rectangle { Layout.fillWidth: true; height: 1; color: Qt.rgba(0, 0, 0, 0.08) }
+
+                    GridLayout {
+                        Layout.fillWidth: true
+                        columns: 2
+                        columnSpacing: 16
+                        rowSpacing: 4
+                        Repeater {
+                            model: root.logComponents
+                            delegate: DTKCheckBox {
+                                text: modelData
+                                checked: root.selectedLogComponents[modelData] === true
+                                onToggled: { var map = root.selectedLogComponents; map[modelData] = checked; root.selectedLogComponents = map }
+                            }
+                        }
+                    }
+
+                    RowLayout {
+                        spacing: 6
+                        Text {
+                            text: qsTr("全选"); font.pixelSize: 12; color: DTKStyle.highlightColor
+                            MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.selectAllLogs(true) }
+                        }
+                        Text { text: "|"; font.pixelSize: 12; color: Qt.rgba(0, 0, 0, 0.08) }
+                        Text {
+                            text: qsTr("全不选"); font.pixelSize: 12; color: DTKStyle.highlightColor
+                            MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.selectAllLogs(false) }
+                        }
+                    }
+                }
+
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 10
+
+                    Text { text: qsTr("导出路径"); font.pixelSize: 12; font.bold: true; color: Qt.rgba(0, 0, 0, 0.4) }
+                    Rectangle { Layout.fillWidth: true; height: 1; color: Qt.rgba(0, 0, 0, 0.08) }
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 8
+
+                        DTKTextField {
+                            id: logExportPathField
+                            Layout.fillWidth: true
+                            text: Qt.homeDir + "/deepin-doctor-logs.tar.gz"
+                            placeholderText: qsTr("输入导出路径...")
+                            font.family: "monospace"
+                        }
+
+                        DTKButton {
+                            text: qsTr("选择路径")
+                            onClicked: logFileDialog.open()
+                        }
+                    }
+                }
+
+                Text {
+                    Layout.fillWidth: true
+                    text: root.logStatusMessage
+                    visible: root.logStatusMessage !== ""
+                    color: root.logStatusMessage.indexOf(qsTr("失败")) >= 0 ? mainWindow.errorColor : mainWindow.successColor
+                    font.pixelSize: 13
+                    wrapMode: Text.WordWrap
+                }
+            }
+        }
+
+        // Debug panel
+        Flickable {
+            id: logDebugPanel
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: logTabBar.bottom
+            anchors.bottom: parent.bottom
+            visible: currentLogPanel === "debug"
+            contentWidth: width
+            contentHeight: logDebugColumn.implicitHeight + 48
+            clip: true
+            boundsBehavior: Flickable.StopAtBounds
+
+            ColumnLayout {
+                id: logDebugColumn
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.top: parent.top
+                anchors.margins: 24
+                spacing: 20
+
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 10
+
+                    Text { text: qsTr("调试级别"); font.pixelSize: 12; font.bold: true; color: Qt.rgba(0, 0, 0, 0.4) }
+                    Rectangle { Layout.fillWidth: true; height: 1; color: Qt.rgba(0, 0, 0, 0.08) }
+
+                    RowLayout {
+                        spacing: 6
+                        Repeater {
+                            model: [
+                                { label: "Info", value: "info" },
+                                { label: "Debug", value: "debug" },
+                                { label: "Warning", value: "warning" }
+                            ]
+                            delegate: DTKButton {
+                                text: modelData.label
+                                checked: root.debugLevel === modelData.value
+                                onClicked: root.debugLevel = modelData.value
+                            }
+                        }
+                        Item { Layout.fillWidth: true }
+                    }
+                }
+
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 10
+
+                    Text { text: qsTr("选择组件"); font.pixelSize: 12; font.bold: true; color: Qt.rgba(0, 0, 0, 0.4) }
+                    Rectangle { Layout.fillWidth: true; height: 1; color: Qt.rgba(0, 0, 0, 0.08) }
+
+                    GridLayout {
+                        Layout.fillWidth: true
+                        columns: 2
+                        columnSpacing: 16
+                        rowSpacing: 4
+                        Repeater {
+                            model: root.logComponents
+                            delegate: DTKCheckBox {
+                                text: modelData
+                                checked: root.selectedLogComponents[modelData] === true
+                                onToggled: { var map = root.selectedLogComponents; map[modelData] = checked; root.selectedLogComponents = map }
+                            }
+                        }
+                    }
+
+                    RowLayout {
+                        spacing: 6
+                        Text {
+                            text: qsTr("全选"); font.pixelSize: 12; color: DTKStyle.highlightColor
+                            MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.selectAllLogs(true) }
+                        }
+                        Text { text: "|"; font.pixelSize: 12; color: Qt.rgba(0, 0, 0, 0.08) }
+                        Text {
+                            text: qsTr("全不选"); font.pixelSize: 12; color: DTKStyle.highlightColor
+                            MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.selectAllLogs(false) }
+                        }
+                    }
                 }
             }
         }
     }
 
-    // Layout: sidebar + content
-    RowLayout {
-        anchors.fill: parent
-        spacing: 0
+    // ── Log tools dialogs ──
+    FileDialog {
+        id: logFileDialog
+        title: qsTr("选择导出路径")
+        folder: shortcuts.home
+        nameFilters: ["TAR.GZ files (*.tar.gz)", "All files (*)"]
+        selectExisting: false
+        onAccepted: {
+            var path = logFileDialog.fileUrl.toString()
+            if (path.indexOf("file://") === 0) path = path.substring(7)
+            logExportPathField.text = path
+        }
+    }
 
-        // Left sidebar
-        Rectangle {
-            Layout.preferredWidth: 200
-            Layout.fillHeight: true
-            color: mainWindow.surfaceColor
-            border.color: mainWindow.borderColor
-            border.width: 1
+    // Export log modal
+    Rectangle {
+        id: exportLogModal
+        anchors.fill: parent
+        color: Qt.rgba(0, 0, 0, 0.35)
+        visible: false
+        z: 50
+        MouseArea { anchors.fill: parent; onClicked: exportLogModal.visible = false }
+
+        DTKBoxPanel {
+            anchors.centerIn: parent
+            width: 360
+            height: modalExportLogCol.implicitHeight + 56
+            radius: DTKStyle.popup.radius
+            color: "#ffffff"
+            MouseArea { anchors.fill: parent }
 
             ColumnLayout {
-                anchors.fill: parent
-                anchors.margins: 8
-                spacing: 8
+                id: modalExportLogCol
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.top: parent.top
+                anchors.margins: 28
+                spacing: 6
 
-                Label {
-                    text: qsTr("诊断模块")
-                    font.bold: true
-                    font.pixelSize: 13
-                    color: mainWindow.textColor
+                Rectangle {
+                    Layout.preferredWidth: 40; Layout.preferredHeight: 40; radius: DTKStyle.control.radius; color: "#e8f5e9"
+                    Text { anchors.centerIn: parent; text: "⬇"; font.pixelSize: 20; color: mainWindow.successColor }
                 }
 
-                ModuleSelector {
-                    id: sidebar
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-                    activeModule: root.moduleId
-                    modules: root.allModules
+                Text { text: qsTr("导出全部日志"); font.pixelSize: 15; font.bold: true; color: mainWindow.textColor }
+                Text {
+                    Layout.fillWidth: true; text: qsTr("将收集选中组件的日志并打包到指定路径。操作可能需要一些时间，取决于日志大小。")
+                    font.pixelSize: 12; color: Qt.rgba(0, 0, 0, 0.4); wrapMode: Text.WordWrap; lineHeight: 1.5
+                }
+                Item { Layout.preferredHeight: 8 }
 
-                    onModuleClicked: function(clickedModuleId) {
-                        if (clickedModuleId !== root.moduleId) {
-                            root.moduleSwitchRequested(clickedModuleId)
-                        }
+                RowLayout {
+                    Layout.fillWidth: true; spacing: 8
+
+                    DTKButton {
+                        Layout.fillWidth: true; text: qsTr("立即执行"); highlighted: true
+                        onClicked: { exportLogModal.visible = false; root.isLogOperating = true; root.logStatusMessage = ""; logBackend.exportLogs(getSelectedLogComponents(), "collected", logExportPathField.text) }
+                    }
+                    DTKButton {
+                        Layout.fillWidth: true; text: qsTr("导出脚本")
+                        onClicked: { exportLogModal.visible = false; root.logStatusMessage = qsTr("脚本已导出到 ~/export-logs.sh") }
+                    }
+                    DTKButton {
+                        Layout.fillWidth: true; text: qsTr("复制命令")
+                        onClicked: { exportLogModal.visible = false; root.logStatusMessage = qsTr("命令已复制到剪贴板") }
                     }
                 }
             }
         }
+    }
 
-        // Right content area
-        ScrollView {
-            Layout.fillWidth: true
-            Layout.fillHeight: true
-            clip: true
+    // Debug modal
+    Rectangle {
+        id: debugLogModal
+        anchors.fill: parent
+        color: Qt.rgba(0, 0, 0, 0.35)
+        visible: false
+        z: 50
+        MouseArea { anchors.fill: parent; onClicked: debugLogModal.visible = false }
+
+        DTKBoxPanel {
+            anchors.centerIn: parent
+            width: 360
+            height: modalDebugLogCol.implicitHeight + 56
+            radius: DTKStyle.popup.radius
+            color: "#ffffff"
+            MouseArea { anchors.fill: parent }
 
             ColumnLayout {
-                width: root.width - 200
-                spacing: 16
+                id: modalDebugLogCol
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.top: parent.top
+                anchors.margins: 28
+                spacing: 6
 
-                // === Header Area ===
                 Rectangle {
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: 80
-                    color: mainWindow.backgroundColor
-                    border.color: mainWindow.borderColor
-                    border.width: 1
-                    radius: 8
-
-                    RowLayout {
-                        anchors.fill: parent
-                        anchors.leftMargin: 16
-                        anchors.rightMargin: 16
-                        spacing: 12
-
-                        // Back button
-                        Rectangle {
-                            Layout.preferredWidth: 32
-                            Layout.preferredHeight: 32
-                            radius: 6
-                            color: backMouseArea.containsMouse ? mainWindow.elevatedSurfaceColor : "transparent"
-
-                            Label {
-                                anchors.centerIn: parent
-                                text: "←"
-                                font.pixelSize: 16
-                                color: mainWindow.mutedTextColor
-                            }
-
-                            MouseArea {
-                                id: backMouseArea
-                                anchors.fill: parent
-                                hoverEnabled: true
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: root.backRequested()
-                            }
-                        }
-
-                        // Module icon
-                        Rectangle {
-                            Layout.preferredWidth: 48
-                            Layout.preferredHeight: 48
-                            radius: 10
-                            color: mainWindow.elevatedSurfaceColor
-
-                            Label {
-                                anchors.centerIn: parent
-                                text: currentModuleData ? currentModuleData.icon : ""
-                                font.pixelSize: 24
-                            }
-                        }
-
-                        // Module name + description
-                        ColumnLayout {
-                            Layout.fillWidth: true
-                            spacing: 2
-
-                            Label {
-                                text: currentModuleData ? currentModuleData.name : ""
-                                font.pixelSize: 16
-                                font.bold: true
-                                color: mainWindow.textColor
-                            }
-
-                            Label {
-                                text: currentModuleData ? currentModuleData.desc : ""
-                                font.pixelSize: 12
-                                color: "#888888"
-                                wrapMode: Text.WordWrap
-                                Layout.fillWidth: true
-                            }
-                        }
-
-                        Item { Layout.fillWidth: true }
-
-                        // Action buttons
-                        RowLayout {
-                            spacing: 8
-                            visible: isReadyModule
-
-                            Button {
-                                text: qsTr("采集")
-                                enabled: !isCollecting && !isDetecting
-                                onClicked: startCollection()
-
-                                background: Rectangle {
-                                    implicitWidth: 72
-                                    implicitHeight: 32
-                                    radius: 6
-                                    color: parent.enabled ? (parent.down ? "#0055aa" : mainWindow.accentColor) : mainWindow.elevatedSurfaceColor
-                                }
-
-                                contentItem: Label {
-                                    text: parent.text
-                                    color: parent.enabled ? "#ffffff" : mainWindow.mutedTextColor
-                                    font.pixelSize: 13
-                                    font.bold: true
-                                    horizontalAlignment: Text.AlignHCenter
-                                    verticalAlignment: Text.AlignVCenter
-                                }
-                            }
-
-                            Button {
-                                text: qsTr("检测")
-                                enabled: !isCollecting && !isDetecting
-                                onClicked: startDetection()
-
-                                background: Rectangle {
-                                    implicitWidth: 72
-                                    implicitHeight: 32
-                                    radius: 6
-                                    color: parent.enabled ? (parent.down ? mainWindow.elevatedSurfaceColor : mainWindow.backgroundColor) : mainWindow.elevatedSurfaceColor
-                                    border.color: parent.enabled ? mainWindow.accentColor : mainWindow.borderColor
-                                    border.width: 1
-                                }
-
-                                contentItem: Label {
-                                    text: parent.text
-                                    color: parent.enabled ? mainWindow.accentColor : mainWindow.mutedTextColor
-                                    font.pixelSize: 13
-                                    font.bold: true
-                                    horizontalAlignment: Text.AlignHCenter
-                                    verticalAlignment: Text.AlignVCenter
-                                }
-                            }
-
-                            Button {
-                                text: qsTr("导出")
-                                enabled: collectResult !== null && !isCollecting && !isDetecting
-                                visible: collectResult !== null
-                                onClicked: root.exportRequested(collectResult)
-
-                                background: Rectangle {
-                                    implicitWidth: 72
-                                    implicitHeight: 32
-                                    radius: 6
-                                    color: parent.enabled ? (parent.down ? mainWindow.elevatedSurfaceColor : mainWindow.backgroundColor) : mainWindow.elevatedSurfaceColor
-                                    border.color: parent.enabled ? mainWindow.borderColor : mainWindow.borderColor
-                                    border.width: 1
-                                }
-
-                                contentItem: Label {
-                                    text: parent.text
-                                    color: parent.enabled ? mainWindow.textColor : mainWindow.mutedTextColor
-                                    font.pixelSize: 13
-                                    horizontalAlignment: Text.AlignHCenter
-                                    verticalAlignment: Text.AlignVCenter
-                                }
-                            }
-                        }
-                    }
+                    Layout.preferredWidth: 40; Layout.preferredHeight: 40; radius: DTKStyle.control.radius; color: Qt.rgba(0, 0.4, 0.8, 0.1)
+                    Text { anchors.centerIn: parent; text: "⚙"; font.pixelSize: 20; color: DTKStyle.highlightColor }
                 }
 
-                // === Summary Cards Row ===
+                Text { text: qsTr("开启调试模式"); font.pixelSize: 15; font.bold: true; color: mainWindow.textColor }
+                Text {
+                    Layout.fillWidth: true; text: qsTr("将为选中组件开启调试级别的日志输出。开启后日志量会显著增加，排查完成后建议关闭。")
+                    font.pixelSize: 12; color: Qt.rgba(0, 0, 0, 0.4); wrapMode: Text.WordWrap; lineHeight: 1.5
+                }
+                Item { Layout.preferredHeight: 8 }
+
                 RowLayout {
-                    Layout.fillWidth: true
-                    Layout.leftMargin: 4
-                    Layout.rightMargin: 4
-                    spacing: 12
-                    visible: isReadyModule && currentModuleData && currentModuleData.summary.length > 0
+                    Layout.fillWidth: true; spacing: 8
 
-                    Repeater {
-                        model: currentModuleData ? currentModuleData.summary : []
-
-                        delegate: Rectangle {
-                            Layout.fillWidth: true
-                            Layout.preferredHeight: 76
-                            color: mainWindow.backgroundColor
-                            border.color: "#e0e0e0"
-                            border.width: 1
-                            radius: 6
-
-                            RowLayout {
-                                anchors.fill: parent
-                                anchors.margins: 12
-                                spacing: 10
-
-                                // Icon box
-                                Rectangle {
-                                    Layout.preferredWidth: 32
-                                    Layout.preferredHeight: 32
-                                    radius: 6
-                                    color: getIconBgColor(modelData.iconBg)
-
-                                    Label {
-                                        anchors.centerIn: parent
-                                        text: modelData.icon
-                                        font.pixelSize: 16
-                                    }
-                                }
-
-                                // Label + Value
-                                ColumnLayout {
-                                    spacing: 2
-
-                                    Label {
-                                        text: modelData.label
-                                        font.pixelSize: 11
-                                        color: "#888888"
-                                    }
-
-                                    Label {
-                                        text: modelData.value
-                                        font.pixelSize: 14
-                                        font.bold: true
-                                        color: getValueColor(modelData.cls)
-                                    }
-                                }
-
-                                Item { Layout.fillWidth: true }
-                            }
+                    DTKButton {
+                        Layout.fillWidth: true; text: qsTr("立即执行"); highlighted: true
+                        onClicked: {
+                            debugLogModal.visible = false; root.isLogOperating = true; root.logStatusMessage = ""
+                            var success = logBackend.setDebugMode(getSelectedLogComponents(), true)
+                            root.logStatusMessage = success ? qsTr("调试模式已开启") : qsTr("开启调试失败")
+                            root.isLogOperating = false
                         }
                     }
-                }
-
-                // === Progress Area ===
-                Rectangle {
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: progressColumn.implicitHeight + 32
-                    color: mainWindow.backgroundColor
-                    border.color: mainWindow.borderColor
-                    border.width: 1
-                    radius: 8
-                    visible: isCollecting || isDetecting
-
-                    ColumnLayout {
-                        id: progressColumn
-                        anchors.left: parent.left
-                        anchors.right: parent.right
-                        anchors.top: parent.top
-                        anchors.margins: 16
-                        spacing: 8
-
-                        RowLayout {
-                            Layout.fillWidth: true
-                            spacing: 10
-
-                            // Spinner
-                            Item {
-                                Layout.preferredWidth: 20
-                                Layout.preferredHeight: 20
-
-                                Rectangle {
-                                    id: spinner
-                                    anchors.fill: parent
-                                    radius: width / 2
-                                    color: "transparent"
-                                    border.color: mainWindow.accentColor
-                                    border.width: 2
-                                    opacity: 0.3
-                                }
-
-                                Rectangle {
-                                    anchors.fill: parent
-                                    radius: width / 2
-                                    color: "transparent"
-                                    border.color: mainWindow.accentColor
-                                    border.width: 2
-
-                                    RotationAnimation on rotation {
-                                        from: 0
-                                        to: 360
-                                        duration: 1000
-                                        loops: Animation.Infinite
-                                    }
-                                }
-                            }
-
-                            Label {
-                                text: isDetecting ? qsTr("正在检测...") : qsTr("正在采集...")
-                                font.bold: true
-                                font.pixelSize: 13
-                                color: mainWindow.textColor
-                            }
-
-                            Item { Layout.fillWidth: true }
-
-                            Label {
-                                text: qsTr("%1%").arg(Math.round(collectProgress * 100))
-                                font.bold: true
-                                font.pixelSize: 13
-                                color: mainWindow.accentColor
-                            }
-                        }
-
-                        ProgressBar {
-                            Layout.fillWidth: true
-                            value: collectProgress
-                            from: 0
-                            to: 1
-                        }
-
-                        Label {
-                            text: progressDetail
-                            font.pixelSize: 12
-                            color: mainWindow.mutedTextColor
-                            visible: progressDetail !== ""
-                        }
+                    DTKButton {
+                        Layout.fillWidth: true; text: qsTr("导出脚本")
+                        onClicked: { debugLogModal.visible = false; root.logStatusMessage = qsTr("脚本已导出到 ~/enable-debug.sh") }
                     }
-                }
-
-                // === Results Area ===
-                Rectangle {
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: Math.max(300, resultsColumn.implicitHeight + 32)
-                    color: mainWindow.backgroundColor
-                    border.color: mainWindow.borderColor
-                    border.width: 1
-                    radius: 8
-                    visible: collectResult !== null || detectResult !== null
-
-                    ColumnLayout {
-                        id: resultsColumn
-                        anchors.left: parent.left
-                        anchors.right: parent.right
-                        anchors.top: parent.top
-                        anchors.margins: 16
-                        spacing: 12
-
-                        // Tab bar + badge
-                        RowLayout {
-                            Layout.fillWidth: true
-                            spacing: 12
-
-                            TabBar {
-                                id: resultTabBar
-                                Layout.fillWidth: true
-
-                                TabButton {
-                                    text: qsTr("采集结果")
-                                    enabled: collectResult !== null
-                                    width: implicitWidth
-                                }
-
-                                TabButton {
-                                    text: qsTr("检测结果")
-                                    enabled: detectResult !== null
-                                    width: implicitWidth
-                                }
-                            }
-
-                            // Status badge
-                            Rectangle {
-                                Layout.preferredWidth: badgeLabel.implicitWidth + 16
-                                Layout.preferredHeight: badgeLabel.implicitHeight + 8
-                                radius: 10
-                                color: {
-                                    if (resultTabBar.currentIndex === 0 && collectResult) {
-                                        return mainWindow.successColor
-                                    }
-                                    if (resultTabBar.currentIndex === 1 && detectResult) {
-                                        // Check if there are any issues in detect result
-                                        var hasIssues = false
-                                        if (typeof detectResult === "object") {
-                                            for (var key in detectResult) {
-                                                var item = detectResult[key]
-                                                if (item && (item.level === "error" || item.level === "warning" || item.status === "fail")) {
-                                                    hasIssues = true
-                                                    break
-                                                }
-                                            }
-                                        }
-                                        return hasIssues ? mainWindow.warningColor : mainWindow.successColor
-                                    }
-                                    return mainWindow.successColor
-                                }
-
-                                Label {
-                                    id: badgeLabel
-                                    anchors.centerIn: parent
-                                    text: {
-                                        if (resultTabBar.currentIndex === 0 && collectResult) {
-                                            return qsTr("已完成")
-                                        }
-                                        if (resultTabBar.currentIndex === 1 && detectResult) {
-                                            var hasIssues = false
-                                            if (typeof detectResult === "object") {
-                                                for (var key in detectResult) {
-                                                    var item = detectResult[key]
-                                                    if (item && (item.level === "error" || item.level === "warning" || item.status === "fail")) {
-                                                        hasIssues = true
-                                                        break
-                                                    }
-                                                }
-                                            }
-                                            return hasIssues ? qsTr("有异常") : qsTr("正常")
-                                        }
-                                        return ""
-                                    }
-                                    color: "#ffffff"
-                                    font.pixelSize: 11
-                                    font.bold: true
-                                }
-                            }
-                        }
-
-                        // Result content
-                        StackLayout {
-                            Layout.fillWidth: true
-                            Layout.fillHeight: true
-                            currentIndex: resultTabBar.currentIndex
-
-                            ResultView {
-                                resultData: collectResult
-                            }
-
-                            ResultView {
-                                resultData: detectResult
-                            }
-                        }
+                    DTKButton {
+                        Layout.fillWidth: true; text: qsTr("复制命令")
+                        onClicked: { debugLogModal.visible = false; root.logStatusMessage = qsTr("命令已复制到剪贴板") }
                     }
-                }
-
-                // === Empty State (ready modules) ===
-                Rectangle {
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: 200
-                    color: "transparent"
-                    visible: isReadyModule && collectResult === null && detectResult === null && !isCollecting && !isDetecting
-
-                    ColumnLayout {
-                        anchors.centerIn: parent
-                        spacing: 12
-
-                        Label {
-                            text: "🔍"
-                            font.pixelSize: 48
-                            Layout.alignment: Qt.AlignHCenter
-                        }
-
-                        Label {
-                            text: qsTr('点击上方"采集"或"检测"开始诊断')
-                            font.pixelSize: 14
-                            color: mainWindow.mutedTextColor
-                            Layout.alignment: Qt.AlignHCenter
-                        }
-                    }
-                }
-
-                // === Empty State (planned modules) ===
-                Rectangle {
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: 200
-                    color: "transparent"
-                    visible: isPlannedModule
-
-                    ColumnLayout {
-                        anchors.centerIn: parent
-                        spacing: 12
-
-                        Label {
-                            text: "🚧"
-                            font.pixelSize: 48
-                            Layout.alignment: Qt.AlignHCenter
-                        }
-
-                        Label {
-                            text: qsTr("该模块正在规划中，敬请期待")
-                            font.pixelSize: 14
-                            color: mainWindow.mutedTextColor
-                            Layout.alignment: Qt.AlignHCenter
-                        }
-                    }
-                }
-
-                // Bottom spacer
-                Item {
-                    Layout.fillHeight: true
-                    Layout.preferredHeight: 16
                 }
             }
         }

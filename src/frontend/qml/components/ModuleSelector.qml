@@ -1,22 +1,28 @@
 import QtQuick 2.15
-import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
+import "../dtk"
 
 Item {
     id: root
 
-    // The currently active (selected) module id
     property string activeModule: ""
-
-    // Array of module objects: {id, name, icon, desc, status}
-    //   id     - string module identifier (e.g. "network")
-    //   name   - display name (e.g. "Network")
-    //   icon   - emoji icon (e.g. "🌐")
-    //   desc   - short description
-    //   status - optional string: "ready", "planned", etc.
     property var modules: []
 
     signal moduleClicked(string moduleId)
+
+    function getIconBgColor(colorName) {
+        var map = {
+            "red": "#ffebee",
+            "blue": "#e8f0fe",
+            "green": "#e8f5e9",
+            "orange": "#fff3e0",
+            "purple": "#f3e5f5",
+            "teal": "#e0f2f1",
+            "indigo": "#e8eaf6",
+            "brown": "#efebe9"
+        }
+        return map[colorName] || "#f5f5f5"
+    }
 
     ListView {
         id: listView
@@ -25,66 +31,58 @@ Item {
         spacing: 4
         model: modules
 
-        delegate: Rectangle {
-            id: delegateItem
+        delegate: DTKItemDelegate {
             width: listView.width
             height: 56
-            radius: 8
-            color: isActive ? mainWindow.accentColor : mouseArea.containsMouse ? mainWindow.surfaceColor : "transparent"
+            checked: modelData.id === root.activeModule
 
-            property bool isActive: modelData.id === root.activeModule
+            contentItem: RowLayout {
+                spacing: DTKStyle.control.spacing
 
-            MouseArea {
-                id: mouseArea
-                anchors.fill: parent
-                hoverEnabled: true
-                cursorShape: Qt.PointingHandCursor
-                onClicked: root.moduleClicked(modelData.id)
-            }
-
-            RowLayout {
-                anchors.fill: parent
-                anchors.leftMargin: 10
-                anchors.rightMargin: 10
-                spacing: 10
-
-                // Icon box
                 Rectangle {
-                    Layout.preferredWidth: 32
-                    Layout.preferredHeight: 32
-                    radius: 6
-                    color: isActive ? Qt.rgba(1, 1, 1, 0.2) : mainWindow.elevatedSurfaceColor
+                    Layout.preferredWidth: 36
+                    Layout.preferredHeight: 36
+                    Layout.leftMargin: DTKStyle.control.padding
+                    radius: DTKStyle.control.radius
+                    color: checked ? Qt.rgba(1, 1, 1, 0.2) : getIconBgColor(modelData.color)
 
-                    Label {
+                    Text {
                         anchors.centerIn: parent
                         text: modelData.icon || ""
-                        font.pixelSize: 16
+                        font.pixelSize: 18
+                        fontSizeMode: Text.Fit
+                        minimumPixelSize: 12
                     }
                 }
 
-                // Name + description
                 ColumnLayout {
                     Layout.fillWidth: true
+                    Layout.rightMargin: DTKStyle.control.padding
                     spacing: 2
 
-                    Label {
+                    Text {
                         text: modelData.name || modelData.id || ""
                         font.pixelSize: 13
                         font.bold: true
-                        color: isActive ? "#ffffff" : mainWindow.textColor
+                        color: checked ? DTKStyle.itemDelegate.checkedText : DTKStyle.itemDelegate.hoveredText
                         elide: Text.ElideRight
                         Layout.fillWidth: true
                     }
 
-                    Label {
+                    Text {
                         text: modelData.desc || ""
                         font.pixelSize: 11
-                        color: isActive ? Qt.rgba(1, 1, 1, 0.75) : mainWindow.mutedTextColor
+                        color: checked ? Qt.rgba(1, 1, 1, 0.7) : Qt.rgba(0, 0, 0, 0.4)
                         elide: Text.ElideRight
                         Layout.fillWidth: true
                         visible: text !== ""
                     }
                 }
+            }
+
+            onClicked: {
+                root.activeModule = modelData.id
+                root.moduleClicked(modelData.id)
             }
         }
     }
