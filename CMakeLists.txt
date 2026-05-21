@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(deepin-doctor VERSION 0.1.0 LANGUAGES CXX)
+project(deepin-doctor VERSION 0.1.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -69,6 +69,7 @@ set(FRONTEND_SOURCES
     src/frontend/main.cpp
     src/frontend/BackendProxy.cpp
     src/frontend/LogBackendProxy.cpp
+    src/frontend/ProcessHelper.cpp
 )
 
 set(QML_FILES
@@ -76,6 +77,7 @@ set(QML_FILES
     src/frontend/qml/pages/HomePage.qml
     src/frontend/qml/pages/ModulePage.qml
     src/frontend/qml/pages/ExportPage.qml
+    src/frontend/qml/pages/KeyringPage.qml
     src/frontend/qml/components/ModuleSelector.qml
     src/frontend/qml/components/PageLayout.qml
     src/frontend/qml/components/ResultView.qml
@@ -138,6 +140,60 @@ target_link_libraries(deepin-doctor
 
 target_include_directories(deepin-doctor PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src/common
+)
+
+# ── wb-keyring-check (keyring diagnostic tool) ──
+set(KEYRING_CORE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src/tools/wb-keyring-helper/core)
+set(KEYRING_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src/tools/wb-keyring-helper/src)
+
+set(KEYRING_CORE_SOURCES
+    ${KEYRING_CORE_DIR}/common.c
+    ${KEYRING_CORE_DIR}/dklog.c
+    ${KEYRING_CORE_DIR}/dkcrypt.c
+    ${KEYRING_CORE_DIR}/dkfile.c
+    ${KEYRING_CORE_DIR}/dkkey.c
+)
+
+add_library(wb-keyring-core STATIC ${KEYRING_CORE_SOURCES})
+target_include_directories(wb-keyring-core PUBLIC ${KEYRING_CORE_DIR})
+target_compile_options(wb-keyring-core PRIVATE -Wall -Wextra -fstack-protector-strong -D_GNU_SOURCE -fPIE -fPIC)
+target_link_libraries(wb-keyring-core PUBLIC dl)
+
+# Find libgcrypt
+find_package(PkgConfig QUIET)
+if(PkgConfig_FOUND)
+    pkg_check_modules(GCRYPT_PKG QUIET gcrypt)
+endif()
+find_path(GCRYPT_INCLUDE_DIR gcrypt.h HINTS ${GCRYPT_PKG_INCLUDE_DIRS})
+find_library(GCRYPT_LIBRARY gcrypt HINTS ${GCRYPT_PKG_LIBRARY_DIRS})
+
+if(GCRYPT_INCLUDE_DIR AND GCRYPT_LIBRARY)
+    add_executable(wb-keyring-check ${KEYRING_SRC_DIR}/main.c)
+    target_include_directories(wb-keyring-check PRIVATE
+        ${KEYRING_CORE_DIR}
+        ${KEYRING_SRC_DIR}
+        ${GCRYPT_INCLUDE_DIR}
+    )
+    if(GCRYPT_PKG_INCLUDE_DIRS)
+        target_include_directories(wb-keyring-check PRIVATE ${GCRYPT_PKG_INCLUDE_DIRS})
+    endif()
+    target_compile_options(wb-keyring-check PRIVATE -Wall -Wextra -fstack-protector-strong -D_GNU_SOURCE -fPIE -fPIC)
+    target_link_libraries(wb-keyring-check PRIVATE wb-keyring-core ${GCRYPT_LIBRARY})
+    if(GCRYPT_PKG_LIBRARIES)
+        target_link_libraries(wb-keyring-check PRIVATE ${GCRYPT_PKG_LIBRARIES})
+    endif()
+    set(HAS_KEYRING_CHECK TRUE)
+else()
+    message(WARNING "libgcrypt not found, wb-keyring-check will not be built")
+    set(HAS_KEYRING_CHECK FALSE)
+endif()
+
+# Copy keyring tools to build dir for development
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/tools)
+configure_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/tools/wb-keyring-helper/scripts/wb-keyring-fix.sh
+    ${CMAKE_CURRENT_BINARY_DIR}/tools/wb-keyring-fix.sh
+    COPYONLY
 )
 
 # Testing
@@ -249,4 +305,14 @@ install(FILES data/dbus/com.deepin.Doctor.conf
 # Install icons
 install(FILES data/icons/deepin-doctor.svg
     DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/scalable/apps
+)
+
+# Install keyring tools
+if(HAS_KEYRING_CHECK)
+    install(TARGETS wb-keyring-check
+        RUNTIME DESTINATION ${CMAKE_INSTALL_LIBEXECDIR}/deepin-doctor/tools
+    )
+endif()
+install(PROGRAMS src/tools/wb-keyring-helper/scripts/wb-keyring-fix.sh
+    DESTINATION ${CMAKE_INSTALL_LIBEXECDIR}/deepin-doctor/tools
 )

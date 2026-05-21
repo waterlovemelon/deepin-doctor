@@ -56,8 +56,20 @@ ApplicationWindow {
 
         HomePage {
             onModuleClicked: function(moduleId) {
-                stackView.push(modulePageComponent, { moduleId: moduleId })
+                if (moduleId === "keyring") {
+                    stackView.push(keyringPageComponent)
+                } else {
+                    stackView.push(modulePageComponent, { moduleId: moduleId })
+                }
             }
+        }
+    }
+
+    Component {
+        id: keyringPageComponent
+
+        KeyringPage {
+            onBackRequested: mainWindow.goBack()
         }
     }
 

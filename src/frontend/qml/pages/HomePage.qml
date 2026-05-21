@@ -13,6 +13,7 @@ Item {
         { id: "network",     name: qsTr("网络"),          icon: "🌐", desc: qsTr("网络接口、路由表、DNS 配置、连通性检测"),  status: "ready",  color: "blue" },
         { id: "system",      name: qsTr("系统"),          icon: "⚙️", desc: qsTr("操作系统版本、内核信息、主机名、运行时间"), status: "ready",  color: "green" },
         { id: "environment", name: qsTr("环境"),          icon: "🌏", desc: qsTr("环境变量、区域设置、PATH 配置检查"),       status: "ready",  color: "orange" },
+        { id: "keyring",     name: qsTr("密钥环"),        icon: "🔑", desc: qsTr("白盒密钥环文件检测与修复"),                status: "ready",  color: "cyan" },
         { id: "listening",   name: qsTr("监听任务"),      icon: "📡", desc: qsTr("端口监听、服务状态、进程关联检查"),        status: "planned", color: "purple" },
         { id: "netenv",      name: qsTr("网络环境检查"),  icon: "🛡", desc: qsTr("代理配置、防火墙规则、VPN 状态检测"),      status: "planned", color: "teal" },
         { id: "disk",        name: qsTr("磁盘健康"),      icon: "💾", desc: qsTr("SMART 信息、磁盘空间、文件系统检查"),      status: "planned", color: "indigo" },
@@ -28,7 +29,8 @@ Item {
             "purple": "#f3e5f5",
             "teal":   "#e0f2f1",
             "indigo": "#e8eaf6",
-            "brown":  "#efebe9"
+            "brown":  "#efebe9",
+            "cyan":   "#e0f7fa"
         }
         return map[colorName] || "#f5f5f5"
     }
