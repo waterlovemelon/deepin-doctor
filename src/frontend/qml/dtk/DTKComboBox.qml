@@ -1,8 +1,8 @@
 // DTK ComboBox - dropdown selector with DTK styling
 // Pure QML reimplementation extending QtQuick.Controls ComboBox
-import QtQuick 2.15
-import QtQuick.Controls 2.15 as Controls
-import QtQuick.Layouts 1.15
+import QtQuick 2.11
+import QtQuick.Controls 2.4 as Controls
+import QtQuick.Layouts 1.11
 
 Controls.ComboBox {
     id: control
@@ -38,6 +38,9 @@ Controls.ComboBox {
         }
     }
 
+    // Hide default indicator (arrow is drawn inside contentItem)
+    indicator: Item {}
+
     // Background
     background: Rectangle {
         implicitWidth: DTKStyle.comboBox.width
@@ -48,9 +51,6 @@ Controls.ComboBox {
                : DTKStyle.edit.background
         border.color: control.activeFocus ? DTKStyle.edit.borderFocus : DTKStyle.edit.border
         border.width: 1
-
-        Behavior on color { ColorAnimation { duration: 120 } }
-        Behavior on border.color { ColorAnimation { duration: 120 } }
 
         // Inner highlight
         Rectangle {
@@ -111,8 +111,6 @@ Controls.ComboBox {
                    : parent.hovered ? Qt.rgba(0, 0, 0, 0.05)
                    : "transparent"
             radius: 4
-
-            Behavior on color { ColorAnimation { duration: 120 } }
         }
     }
 }
