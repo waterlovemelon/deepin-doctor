@@ -1,7 +1,7 @@
 // DTK Slider - value slider with DTK styling
 // Pure QML reimplementation extending QtQuick.Controls Slider
-import QtQuick 2.15
-import QtQuick.Controls 2.15 as Controls
+import QtQuick 2.11
+import QtQuick.Controls 2.4 as Controls
 
 Controls.Slider {
     id: control
@@ -50,8 +50,6 @@ Controls.Slider {
                           : control.hovered ? Qt.rgba(0, 0, 0, 0.3)
                           : Qt.rgba(0, 0, 0, 0.15)
             border.width: 1
-
-            Behavior on border.color { ColorAnimation { duration: 120 } }
 
             // Drop shadow
             Rectangle {

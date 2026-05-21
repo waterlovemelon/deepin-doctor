@@ -2,7 +2,6 @@
 #define DBUS_SERVICE_H
 
 #include <QObject>
-#include <QDBusAbstractAdaptor>
 #include <QJsonObject>
 
 class ModuleManager;
@@ -10,7 +9,6 @@ class ModuleManager;
 class DBusService : public QObject
 {
     Q_OBJECT
-    Q_CLASSINFO("D-Bus Interface", "com.deepin.Doctor")
 
 public:
     explicit DBusService(ModuleManager* moduleManager, QObject* parent = nullptr);

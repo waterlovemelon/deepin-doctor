@@ -1,6 +1,6 @@
-import QtQuick 2.15
-import QtQuick.Controls 2.15
-import QtQuick.Layouts 1.15
+import QtQuick 2.11
+import QtQuick.Controls 2.4
+import QtQuick.Layouts 1.11
 import QtQuick.Dialogs 1.3
 import "../components"
 import "../dtk"
@@ -24,7 +24,6 @@ PageLayout {
 
     title: qsTr("📋 日志工具")
 
-    property string currentPanel: "export"
     property var components: []
     property var selectedComponents: ({})
     property string debugLevel: "info"
@@ -60,11 +59,11 @@ PageLayout {
 
     Connections {
         target: logBackend
-        function onExportFinished(success, path) {
+        onExportFinished: {
             isOperating = false
-            statusMessage = success ? qsTr("导出成功：") + path : qsTr("导出失败")
+            statusMessage = arguments[0] ? qsTr("导出成功：") + arguments[1] : qsTr("导出失败")
         }
-        function onDebugModeChanged(component, enabled) {}
+        onDebugModeChanged: {}
     }
 
     // ── TopBar actions ──
@@ -101,8 +100,8 @@ PageLayout {
             Layout.fillHeight: true
             activeModule: root.moduleId
             modules: root.allModules
-            onModuleClicked: function(clickedModuleId) {
-                if (clickedModuleId !== root.moduleId) root.moduleSwitchRequested(clickedModuleId)
+            onModuleClicked: {
+                if (arguments[0] !== root.moduleId) root.moduleSwitchRequested(arguments[0])
             }
         }
     }
@@ -112,7 +111,7 @@ PageLayout {
         anchors.fill: parent
 
         // Tab bar for switching between panels
-        RowLayout {
+        DTKTabBar {
             id: tabBar
             anchors.left: parent.left
             anchors.right: parent.right
@@ -120,38 +119,10 @@ PageLayout {
             anchors.leftMargin: 24
             anchors.rightMargin: 24
             anchors.topMargin: 16
-            spacing: 0
-
-            Repeater {
-                model: [
-                    { label: qsTr("导出日志"), value: "export" },
-                    { label: qsTr("调试模式"), value: "debug" }
-                ]
-
-                delegate: Rectangle {
-                    Layout.preferredWidth: tabLabel.implicitWidth + 24
-                    Layout.preferredHeight: 32
-                    radius: 6
-                    color: root.currentPanel === modelData.value ? Qt.rgba(0, 0.4, 0.8, 0.1) : "transparent"
-
-                    Text {
-                        id: tabLabel
-                        anchors.centerIn: parent
-                        text: modelData.label
-                        font.pixelSize: 13
-                        font.bold: root.currentPanel === modelData.value
-                        color: root.currentPanel === modelData.value ? DTKStyle.highlightColor : Qt.rgba(0, 0, 0, 0.5)
-                    }
-
-                    MouseArea {
-                        anchors.fill: parent
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: root.currentPanel = modelData.value
-                    }
-                }
-            }
-
-            Item { Layout.fillWidth: true }
+            model: [
+                { label: qsTr("导出日志"), value: "export" },
+                { label: qsTr("调试模式"), value: "debug" }
+            ]
         }
 
         // Export panel
@@ -161,7 +132,7 @@ PageLayout {
             anchors.right: parent.right
             anchors.top: tabBar.bottom
             anchors.bottom: parent.bottom
-            visible: currentPanel === "export"
+            visible: tabBar.currentValue === "export"
             contentWidth: width
             contentHeight: exportColumn.implicitHeight + 48
             clip: true
@@ -255,7 +226,7 @@ PageLayout {
             anchors.right: parent.right
             anchors.top: tabBar.bottom
             anchors.bottom: parent.bottom
-            visible: currentPanel === "debug"
+            visible: tabBar.currentValue === "debug"
             contentWidth: width
             contentHeight: debugColumn.implicitHeight + 48
             clip: true

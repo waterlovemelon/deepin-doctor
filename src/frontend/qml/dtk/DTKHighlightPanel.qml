@@ -1,6 +1,6 @@
 // DTK HighlightPanel - selected item background
 // Pure QML reimplementation of org.deepin.dtk/HighlightPanel
-import QtQuick 2.15
+import QtQuick 2.11
 
 Item {
     id: panel
@@ -19,8 +19,6 @@ Item {
         anchors.fill: parent
         color: panel.hovered ? panel.backgroundColorHovered : panel.backgroundColor
         radius: panel.radius
-
-        Behavior on color { ColorAnimation { duration: 120 } }
 
         // Inner shadow (bottom edge dark)
         Rectangle {

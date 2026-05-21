@@ -1,8 +1,8 @@
 // DTK MenuItem - menu item with DTK styling
 // Pure QML reimplementation extending QtQuick.Controls MenuItem
-import QtQuick 2.15
-import QtQuick.Controls 2.15 as Controls
-import QtQuick.Layouts 1.15
+import QtQuick 2.11
+import QtQuick.Controls 2.4 as Controls
+import QtQuick.Layouts 1.11
 
 Controls.MenuItem {
     id: control
@@ -50,8 +50,6 @@ Controls.MenuItem {
 
         anchors.leftMargin: 4
         anchors.rightMargin: 4
-
-        Behavior on color { ColorAnimation { duration: 120 } }
     }
 
     indicator: Item {

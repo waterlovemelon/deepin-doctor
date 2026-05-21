@@ -36,17 +36,23 @@ Frontend/backend split communicating over D-Bus (session bus):
 ```
 Frontend (QML)  ──D-Bus──>  Backend Daemon (C++)
   BackendProxy                 DBusService
-  Main.qml                     ModuleManager
-  MainPage.qml                 PluginManager
-  ExportPage.qml               ├── network/NetworkModule
-  ModuleSelector.qml           ├── system/SystemModule
-  ResultView.qml               ├── environment/EnvironmentModule
-                               └── logs/LogsModule
+  LogBackendProxy              LogDBusService
+  ProcessHelper                ModuleManager
+  Main.qml                     PluginManager
+  pages/                       ├── network/NetworkModule
+    HomePage.qml               ├── system/SystemModule
+    ModulePage.qml             ├── environment/EnvironmentModule
+    ExportPage.qml             └── logs/LogsModule
+    KeyringPage.qml
+    LogToolsPage.qml
+  components/
+  dtk/  (custom DTK-style QML components)
 ```
 
 - **D-Bus service**: `com.deepin.Doctor` on session bus, object path `/com/deepin/Doctor`
 - **Methods**: `ListModules()`, `Collect(modules) → taskId`, `Detect(modules) → issuesJson`, `Export(json, path) → bool`
 - **Signals**: `CollectProgress(taskId, module, progress)`, `CollectFinished(taskId, resultJson)`
+- **Log D-Bus service**: `com.deepin.Doctor.LogService` at `/com/deepin/Doctor/Log` — methods: `CheckCommand()`, `ListComponents()`, `SetDebugMode()`, `IsDebugEnabled()`, `ExportLogs()`
 - **Async collection pattern**: `Collect()` returns a UUID task ID immediately; progress arrives via `CollectProgress` signals; final result via `CollectFinished` signal. Modules run in parallel via `QtConcurrent::run()`.
 - **Plugin system**: Qt's `QPluginLoader` + `Q_DECLARE_INTERFACE`. Plugins are `.so` loaded at startup from plugin directory. Each plugin provides a `PluginInterface` factory that creates a `ModuleInterface`. See `src/plugins/example/` for reference.
 
@@ -58,23 +64,33 @@ Frontend (QML)  ──D-Bus──>  Backend Daemon (C++)
 - **Sensitive data masking**: `LogsModule` redacts passwords, tokens, SSH keys, and connection strings from collected logs.
 - **System commands via QProcess**: Modules invoke system utilities (`ip`, `ping`, `dig`, `journalctl`, `dmesg`, `lspci`, `dpkg`, `tar`, etc.) rather than linking libraries directly.
 - **UI style**: Simple tool-style UI. System/default Qt theme colors. No gradients, no glow effects, no elaborate animations. Functional over decorative.
+- **Custom DTK style library**: `src/frontend/qml/dtk/` contains 8 QML components (DTKBoxPanel, DTKButton, DTKProgressBar, etc.) that mimic Deepin Toolkit style without depending on DTK itself.
+
+## Adding a New Module
+
+1. Create directory under `src/backend/modules/<name>/`
+2. Implement `ModuleInterface` (from `src/common/ModuleInterface.h`): `name()`, `description()`, `collect(QJsonObject&)`, `detect() → QList<Issue>`
+3. Register in `src/backend/main.cpp` — call `moduleManager.registerModule(new MyModule())`
+4. Add the module source files to `CMakeLists.txt` in the `deepin-doctor-daemon` target
+5. Add a test in `tests/` using `add_deepin_doctor_test()`
 
 ## Testing
 
 - **Framework**: Qt Test (`QTest`). Tests use `QTEST_MAIN` and `private slots` as test methods.
-- **7 test files** in `tests/`: `test_network_module`, `test_system_module`, `test_environment_module`, `test_logs_module`, `test_module_manager`, `test_qml_export_page`, `test_qml_components`.
+- **8 test files** in `tests/`: `test_network_module`, `test_system_module`, `test_environment_module`, `test_logs_module`, `test_module_manager`, `test_log_dbus_service`, `test_qml_export_page`, `test_qml_components`.
 - **CMake helper**: `add_deepin_doctor_test(name sources)` registers a test, linking against `deepin-doctor-common`, `Qt::Test`, `Qt::Concurrent`.
 - **QML tests** use `FakeBackend` and `FakeTheme` mock objects injected into the QML engine context for isolated UI testing.
 
 ## Code Layout
 
 - `src/common/` — `ModuleInterface.h`, `PluginInterface.h`, `Types.h` (shared interfaces)
-- `src/backend/` — daemon: `DBusService`, `ModuleManager`, `PluginManager`
+- `src/backend/` — daemon: `DBusService`, `LogDBusService`, `ModuleManager`, `PluginManager`
 - `src/backend/modules/{network,system,environment,logs}/` — built-in modules
-- `src/frontend/` — `main.cpp`, `BackendProxy.h/.cpp`
-- `src/frontend/qml/` — `Main.qml`, `pages/`, `components/`
+- `src/frontend/` — `main.cpp`, `BackendProxy`, `LogBackendProxy`, `ProcessHelper` (QML singleton for running system commands)
+- `src/frontend/qml/` — `Main.qml`, `pages/`, `components/`, `dtk/` (custom style library)
 - `src/plugins/example/` — reference plugin implementation with developer guide
-- `tests/` — Qt Test based unit tests (7 test files)
+- `src/tools/wb-keyring-helper/` — standalone C tool for keyring diagnostics (conditional on libgcrypt)
+- `tests/` — Qt Test based unit tests (8 test files)
 - `data/dbus/` — D-Bus policy config
 - `data/icons/` — app icon
 - `debian/` — two binary packages: `deepin-doctor` (frontend) and `deepin-doctor-daemon` (backend)

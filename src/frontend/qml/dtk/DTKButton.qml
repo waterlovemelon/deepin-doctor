@@ -1,6 +1,6 @@
 // DTK Button - with proper DTK styling
 // Pure QML reimplementation of org.deepin.dtk/Button
-import QtQuick 2.15
+import QtQuick 2.11
 
 Item {
     id: button
@@ -36,8 +36,6 @@ Item {
         }
         border.width: 1
         visible: !button.pressed
-
-        Behavior on border.color { ColorAnimation { duration: 120 } }
     }
 
     // Background
@@ -76,12 +74,7 @@ Item {
                    : button.hovered ? DTKStyle.button.insideBorderHovered
                    : DTKStyle.button.insideBorder
             visible: !checked && !highlighted
-
-            Behavior on color { ColorAnimation { duration: 120 } }
         }
-
-        Behavior on color { ColorAnimation { duration: 120 } }
-        Behavior on border.color { ColorAnimation { duration: 120 } }
     }
 
     Text {

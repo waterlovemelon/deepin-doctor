@@ -42,9 +42,11 @@ target_include_directories(deepin-doctor-common PUBLIC
 add_executable(deepin-doctor-daemon
     src/backend/main.cpp
     src/backend/DBusService.cpp
+    src/backend/DBusAdaptor.cpp
     src/backend/ModuleManager.cpp
     src/backend/PluginManager.cpp
     src/backend/LogDBusService.cpp
+    src/backend/LogDBusAdaptor.cpp
     # Built-in modules
     src/backend/modules/network/NetworkModule.cpp
     src/backend/modules/system/SystemModule.cpp
@@ -75,9 +77,10 @@ set(FRONTEND_SOURCES
 set(QML_FILES
     src/frontend/qml/Main.qml
     src/frontend/qml/pages/HomePage.qml
+    src/frontend/qml/pages/MainPage.qml
     src/frontend/qml/pages/ModulePage.qml
     src/frontend/qml/pages/ExportPage.qml
-    src/frontend/qml/pages/KeyringPage.qml
+    src/frontend/qml/pages/LogToolsPage.qml
     src/frontend/qml/components/ModuleSelector.qml
     src/frontend/qml/components/PageLayout.qml
     src/frontend/qml/components/ResultView.qml
@@ -86,9 +89,22 @@ set(QML_FILES
     src/frontend/qml/dtk/DTKItemDelegate.qml
     src/frontend/qml/dtk/DTKBoxPanel.qml
     src/frontend/qml/dtk/DTKButton.qml
+    src/frontend/qml/dtk/DTKBusyIndicator.qml
     src/frontend/qml/dtk/DTKCheckBox.qml
-    src/frontend/qml/dtk/DTKTextField.qml
+    src/frontend/qml/dtk/DTKComboBox.qml
+    src/frontend/qml/dtk/DTKDialog.qml
+    src/frontend/qml/dtk/DTKMenu.qml
+    src/frontend/qml/dtk/DTKMenuItem.qml
     src/frontend/qml/dtk/DTKProgressBar.qml
+    src/frontend/qml/dtk/DTKRadioButton.qml
+    src/frontend/qml/dtk/DTKScrollBar.qml
+    src/frontend/qml/dtk/DTKSearchEdit.qml
+    src/frontend/qml/dtk/DTKSlider.qml
+    src/frontend/qml/dtk/DTKSwitch.qml
+    src/frontend/qml/dtk/DTKTabBar.qml
+    src/frontend/qml/dtk/DTKTextArea.qml
+    src/frontend/qml/dtk/DTKTextField.qml
+    src/frontend/qml/dtk/DTKToolTip.qml
     src/frontend/qml/dtk/qmldir
 )
 
@@ -283,6 +299,7 @@ add_deepin_doctor_test(test_logs_module
 add_deepin_doctor_test(test_log_dbus_service
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_log_dbus_service.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/backend/LogDBusService.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/backend/LogDBusAdaptor.cpp
 )
 
 # Plugins

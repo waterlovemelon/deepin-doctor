@@ -1,4 +1,5 @@
 #include "DBusService.h"
+#include "DBusAdaptor.h"
 #include "ModuleManager.h"
 #include "ModuleInterface.h"
 #include <QDBusConnection>
@@ -15,6 +16,8 @@ DBusService::DBusService(ModuleManager* moduleManager, QObject* parent)
     : QObject(parent)
     , m_moduleManager(moduleManager)
 {
+    new DBusAdaptor(this);
+
     // Connect ModuleManager signals
     connect(m_moduleManager, &ModuleManager::collectProgress,
             this, &DBusService::CollectProgress);
@@ -38,7 +41,7 @@ bool DBusService::registerService()
         return false;
     }
 
-    if (!bus.registerObject(m_objectPath, this, QDBusConnection::ExportAllSlots | QDBusConnection::ExportAllSignals)) {
+    if (!bus.registerObject(m_objectPath, this, QDBusConnection::ExportAdaptors)) {
         qWarning() << "Failed to register DBus object:" << m_objectPath
                    << bus.lastError().message();
         return false;

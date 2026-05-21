@@ -1,4 +1,5 @@
 #include "LogDBusService.h"
+#include "LogDBusAdaptor.h"
 #include <QDBusConnection>
 #include <QDBusConnectionInterface>
 #include <QProcess>
@@ -7,6 +8,7 @@
 LogDBusService::LogDBusService(QObject* parent)
     : QObject(parent)
 {
+    new LogDBusAdaptor(this);
 }
 
 LogDBusService::~LogDBusService()
@@ -25,7 +27,7 @@ bool LogDBusService::registerService()
         return false;
     }
 
-    if (!bus.registerObject(m_objectPath, this, QDBusConnection::ExportAllSlots | QDBusConnection::ExportAllSignals)) {
+    if (!bus.registerObject(m_objectPath, this, QDBusConnection::ExportAdaptors)) {
         qWarning() << "Failed to register DBus object:" << m_objectPath
                    << bus.lastError().message();
         return false;

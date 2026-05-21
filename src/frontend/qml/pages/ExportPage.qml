@@ -1,6 +1,6 @@
-import QtQuick 2.15
-import QtQuick.Controls 2.15
-import QtQuick.Layouts 1.15
+import QtQuick 2.11
+import QtQuick.Controls 2.4
+import QtQuick.Layouts 1.11
 import QtQuick.Dialogs 1.3
 import "../components"
 import "../dtk"
@@ -29,14 +29,34 @@ PageLayout {
         }
     }
 
-    MessageDialog {
+    DTKDialog {
         id: successDialog
+        anchors.fill: parent
+        visible: false
         title: qsTr("Export Successful")
-        text: msgText
-        standardButtons: StandardButton.Ok
         property string msgText: ""
-        onAccepted: root.exportCompleted(successDialog.exportPath)
+        property string text: msgText
         property string exportPath: ""
+
+        contentItem: Text {
+            text: successDialog.text
+            font.pixelSize: 13
+            color: Qt.rgba(0, 0, 0, 0.7)
+            wrapMode: Text.WordWrap
+        }
+
+        footerItem: RowLayout {
+            spacing: 8
+            Item { Layout.fillWidth: true }
+            DTKButton {
+                text: qsTr("OK")
+                highlighted: true
+                onClicked: {
+                    successDialog.visible = false
+                    root.exportCompleted(successDialog.exportPath)
+                }
+            }
+        }
     }
 
     // ── Content ──
@@ -138,7 +158,7 @@ PageLayout {
         isExporting = false; exportProgress = 1.0; exportStatusText.text = qsTr("Export completed successfully!")
         successDialog.exportPath = pathField.text
         successDialog.msgText = qsTr("Results have been exported to:\n%1").arg(pathField.text)
-        successDialog.open()
+        successDialog.visible = true
     }
 
     Component.onCompleted: { pathField.text = getDefaultExportPath() }

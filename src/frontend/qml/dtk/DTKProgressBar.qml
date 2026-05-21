@@ -1,5 +1,5 @@
 // DTK ProgressBar - pure QML reimplementation of org.deepin.dtk ProgressBar
-import QtQuick 2.15
+import QtQuick 2.11
 
 Item {
     id: control

@@ -1,6 +1,6 @@
 // DTK Switch - toggle control with animated track and handle
 // Pure QML reimplementation of org.deepin.dtk/Switch
-import QtQuick 2.15
+import QtQuick 2.11
 
 Item {
     id: control

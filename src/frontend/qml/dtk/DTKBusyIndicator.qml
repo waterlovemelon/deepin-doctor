@@ -1,6 +1,6 @@
 // DTK BusyIndicator - animated loading spinner
 // Pure QML reimplementation of org.deepin.dtk/BusyIndicator
-import QtQuick 2.15
+import QtQuick 2.11
 
 Item {
     id: control

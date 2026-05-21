@@ -1,6 +1,6 @@
 // DTK TextField - pure QML reimplementation of org.deepin.dtk TextField
-import QtQuick 2.15
-import QtQuick.Controls 2.15
+import QtQuick 2.11
+import QtQuick.Controls 2.4
 
 TextField {
     id: control
@@ -20,7 +20,6 @@ TextField {
     verticalAlignment: TextInput.AlignVCenter
     selectByMouse: true
     selectionColor: Qt.rgba(0, 129, 255, 0.3)
-    selectedTextColor: Qt.rgba(0, 0, 0, 0.7)
     opacity: enabled ? 1.0 : 0.4
 
     background: Rectangle {

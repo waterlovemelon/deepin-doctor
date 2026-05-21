@@ -2,7 +2,7 @@
 // Pure QML, no C++ dependency — all D.Palette/D.ColorSelector resolved to concrete values
 // Source: dtkdeclarative v6.7.41, light theme only
 pragma Singleton
-import QtQuick 2.15
+import QtQuick 2.11
 
 QtObject {
     // Deepin system accent color (D.Color.Highlight equivalent)

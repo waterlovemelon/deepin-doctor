@@ -16,6 +16,7 @@ DTKScrollBar 1.0 DTKScrollBar.qml
 DTKSearchEdit 1.0 DTKSearchEdit.qml
 DTKSlider 1.0 DTKSlider.qml
 DTKSwitch 1.0 DTKSwitch.qml
+DTKTabBar 1.0 DTKTabBar.qml
 DTKTextArea 1.0 DTKTextArea.qml
 DTKTextField 1.0 DTKTextField.qml
 DTKToolTip 1.0 DTKToolTip.qml

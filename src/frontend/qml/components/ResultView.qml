@@ -1,6 +1,6 @@
-import QtQuick 2.15
-import QtQuick.Controls 2.15
-import QtQuick.Layouts 1.15
+import QtQuick 2.11
+import QtQuick.Controls 2.4 as Controls
+import QtQuick.Layouts 1.11
 import "../dtk"
 
 Item {
@@ -32,12 +32,11 @@ Item {
             Layout.fillWidth: true
             spacing: 8
 
-            TabBar {
+            DTKTabBar {
                 id: resultTabBar
                 Layout.fillWidth: true
                 currentIndex: root.showRawJson ? 1 : 0
-                TabButton { text: qsTr("Summary"); width: implicitWidth }
-                TabButton { text: qsTr("Raw"); width: implicitWidth }
+                model: [qsTr("Summary"), qsTr("Raw")]
             }
 
             DTKButton {
@@ -110,10 +109,11 @@ Item {
                             border.width: 1
                             radius: DTKStyle.control.radius
 
-                            ScrollView {
+                            Controls.ScrollView {
                                 anchors.fill: parent
                                 anchors.margins: 4
-                                TextArea {
+                                Controls.ScrollBar.vertical: DTKScrollBar { }
+                                DTKTextArea {
                                     text: resultData[modelData] ? JSON.stringify(resultData[modelData], null, 2) : ""
                                     readOnly: true; selectByMouse: true; wrapMode: TextEdit.WrapAnywhere
                                     font.family: "monospace"; font.pixelSize: 11
@@ -134,8 +134,9 @@ Item {
             }
 
             // Raw view
-            ScrollView {
-                TextArea {
+            Controls.ScrollView {
+                Controls.ScrollBar.vertical: DTKScrollBar { }
+                DTKTextArea {
                     id: rawTextArea
                     text: resultText !== "" ? resultText : derivedResultText
                     readOnly: true; selectByMouse: true; wrapMode: TextEdit.WrapAnywhere

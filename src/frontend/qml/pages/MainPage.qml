@@ -1,7 +1,8 @@
-import QtQuick 2.15
-import QtQuick.Controls 2.15
-import QtQuick.Layouts 1.15
+import QtQuick 2.11
+import QtQuick.Controls 2.4
+import QtQuick.Layouts 1.11
 import "../components"
+import "../dtk"
 
 Item {
     id: root
@@ -27,16 +28,23 @@ Item {
             Layout.fillHeight: true
             spacing: 12
 
-            GroupBox {
-                title: qsTr("Modules")
+            DTKBoxPanel {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
 
                 ColumnLayout {
                     anchors.fill: parent
+                    anchors.margins: 16
                     spacing: 8
 
-                    Label {
+                    Text {
+                        text: qsTr("Modules")
+                        font.pixelSize: 14
+                        font.bold: true
+                        color: mainWindow.textColor
+                    }
+
+                    Text {
                         text: qsTr("Select which system areas to inspect.")
                         font.pixelSize: 11
                         color: mainWindow.mutedTextColor
@@ -54,15 +62,13 @@ Item {
                             setModules(modules)
                         }
 
-                        onSelectionChanged: function(modules) {
-                            updateActionState()
-                        }
+                        onSelectionChanged: updateActionState()
                     }
                 }
             }
 
             // Selection summary
-            Label {
+            Text {
                 text: moduleSelector.selectedModules.length > 0
                       ? qsTr("%1 module(s) selected").arg(moduleSelector.selectedModules.length)
                       : qsTr("No modules selected")
@@ -78,34 +84,38 @@ Item {
             spacing: 12
 
             // Action bar
-            GroupBox {
+            DTKBoxPanel {
                 Layout.fillWidth: true
 
                 RowLayout {
                     anchors.fill: parent
+                    anchors.margins: 16
                     spacing: 8
 
-                    Label {
+                    Text {
                         text: isCollecting ? qsTr("Collecting...") : qsTr("Ready")
                         font.bold: true
+                        font.pixelSize: 13
+                        color: mainWindow.textColor
                     }
 
                     Item { Layout.fillWidth: true }
 
-                    Button {
+                    DTKButton {
                         text: qsTr("Collect")
                         enabled: !isCollecting && !isDetecting && moduleSelector.selectedModules.length > 0
                         onClicked: startCollection()
                     }
 
-                    Button {
+                    DTKButton {
                         text: qsTr("Detect")
                         enabled: !isCollecting && !isDetecting && moduleSelector.selectedModules.length > 0
                         onClicked: startDetection()
                     }
 
-                    Button {
+                    DTKButton {
                         text: qsTr("Export")
+                        highlighted: true
                         enabled: !isCollecting && !isDetecting && collectResult !== null
                         onClicked: exportRequested(collectResult)
                     }
@@ -113,67 +123,68 @@ Item {
             }
 
             // Progress area
-            GroupBox {
+            DTKBoxPanel {
                 Layout.fillWidth: true
                 visible: isCollecting || isDetecting || collectProgress > 0
 
                 ColumnLayout {
                     anchors.fill: parent
+                    anchors.margins: 16
                     spacing: 8
 
                     RowLayout {
                         Layout.fillWidth: true
 
-                        Label {
+                        Text {
                             text: isDetecting ? qsTr("Detection Progress") : qsTr("Collection Progress")
                             font.bold: true
+                            font.pixelSize: 13
+                            color: mainWindow.textColor
                         }
 
                         Item { Layout.fillWidth: true }
 
-                        Label {
+                        Text {
                             text: qsTr("%1%").arg(Math.round(collectProgress * 100))
                             font.bold: true
+                            font.pixelSize: 13
+                            color: DTKStyle.highlightColor
                         }
                     }
 
-                    ProgressBar {
+                    DTKProgressBar {
                         Layout.fillWidth: true
                         value: collectProgress
                         from: 0
                         to: 1
                     }
 
-                    Label {
+                    Text {
                         text: currentModule || qsTr("Initializing...")
+                        font.pixelSize: 12
                         color: mainWindow.mutedTextColor
                     }
                 }
             }
 
             // Results area
-            GroupBox {
+            DTKBoxPanel {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 visible: collectResult !== null || detectResult !== null
 
                 ColumnLayout {
                     anchors.fill: parent
-                    spacing: 8
+                    anchors.margins: 16
+                    spacing: 12
 
-                    TabBar {
+                    DTKTabBar {
                         id: resultTabBar
                         Layout.fillWidth: true
-
-                        TabButton {
-                            text: qsTr("Collection")
-                            enabled: collectResult !== null
-                        }
-
-                        TabButton {
-                            text: qsTr("Detection")
-                            enabled: detectResult !== null
-                        }
+                        model: [
+                            { label: qsTr("Collection"), value: "collect" },
+                            { label: qsTr("Detection"), value: "detect" }
+                        ]
                     }
 
                     StackLayout {
@@ -195,7 +206,7 @@ Item {
             }
 
             // Status bar
-            Label {
+            Text {
                 Layout.fillWidth: true
                 text: isCollecting ? qsTr("Collecting information...")
                     : isDetecting ? qsTr("Detecting issues...")
@@ -250,22 +261,22 @@ Item {
     Connections {
         target: backend
 
-        function onCollectProgress(taskId, module, progress) {
-            if (taskId === currentTaskId) {
-                collectProgress = progress
-                currentModule = module
+        onCollectProgress: {
+            if (arguments[0] === currentTaskId) {
+                collectProgress = arguments[2]
+                currentModule = arguments[1]
             }
         }
 
-        function onCollectFinished(taskId, result) {
-            if (taskId === currentTaskId) {
+        onCollectFinished: {
+            if (arguments[0] === currentTaskId) {
                 isCollecting = false
                 isDetecting = false
                 collectProgress = 1.0
                 currentModule = ""
 
                 try {
-                    collectResult = JSON.parse(result)
+                    collectResult = JSON.parse(arguments[1])
                 } catch (e) {
                     console.error("Failed to parse result:", e)
                 }

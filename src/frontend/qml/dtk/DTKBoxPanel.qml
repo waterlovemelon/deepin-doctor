@@ -1,6 +1,6 @@
 // DTK BoxPanel - card container with border and shadow
 // Pure QML reimplementation of org.deepin.dtk/BoxPanel
-import QtQuick 2.15
+import QtQuick 2.11
 
 Rectangle {
     id: panel
@@ -17,9 +17,6 @@ Rectangle {
     color: backgroundFlowsHovered && hovered ? Qt.rgba(0, 0, 0, 0.03) : "#ffffff"
     border.color: hovered ? DTKStyle.boxPanel.outsideBorderHovered : outsideBorderColor
     border.width: 1
-
-    Behavior on color { ColorAnimation { duration: 120 } }
-    Behavior on border.color { ColorAnimation { duration: 120 } }
 
     // Inner highlight (top edge light)
     Rectangle {

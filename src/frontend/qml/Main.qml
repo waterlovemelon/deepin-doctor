@@ -1,6 +1,6 @@
-import QtQuick 2.15
-import QtQuick.Controls 2.15
-import QtQuick.Layouts 1.15
+import QtQuick 2.11
+import QtQuick.Controls 2.4
+import QtQuick.Layouts 1.11
 import "pages"
 import "components"
 
@@ -27,16 +27,6 @@ ApplicationWindow {
     readonly property color warningColor: "#ef6c00"
     readonly property color errorColor: "#c62828"
 
-    palette.window: backgroundColor
-    palette.windowText: textColor
-    palette.base: "#ffffff"
-    palette.text: textColor
-    palette.button: surfaceColor
-    palette.buttonText: textColor
-    palette.mid: borderColor
-    palette.highlight: accentColor
-    palette.highlightedText: "#ffffff"
-
     property var exportData: null
 
     function goBack() {
@@ -55,21 +45,9 @@ ApplicationWindow {
         id: homePageComponent
 
         HomePage {
-            onModuleClicked: function(moduleId) {
-                if (moduleId === "keyring") {
-                    stackView.push(keyringPageComponent)
-                } else {
-                    stackView.push(modulePageComponent, { moduleId: moduleId })
-                }
+            onModuleClicked: {
+                stackView.push(modulePageComponent, { moduleId: arguments[0] })
             }
-        }
-    }
-
-    Component {
-        id: keyringPageComponent
-
-        KeyringPage {
-            onBackRequested: mainWindow.goBack()
         }
     }
 
@@ -78,11 +56,11 @@ ApplicationWindow {
 
         ModulePage {
             onBackRequested: mainWindow.goBack()
-            onModuleSwitchRequested: function(moduleId) {
-                this.moduleId = moduleId
+            onModuleSwitchRequested: {
+                this.moduleId = arguments[0]
             }
-            onExportRequested: function(resultData) {
-                mainWindow.exportData = resultData
+            onExportRequested: {
+                mainWindow.exportData = arguments[0]
                 stackView.push(exportPageComponent)
             }
         }
@@ -94,8 +72,8 @@ ApplicationWindow {
         ExportPage {
             exportData: mainWindow.exportData
             onBackRequested: mainWindow.goBack()
-            onExportCompleted: function(outputPath) {
-                console.log("Export completed:", outputPath)
+            onExportCompleted: {
+                console.log("Export completed:", arguments[0])
             }
         }
     }

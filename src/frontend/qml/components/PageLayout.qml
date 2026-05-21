@@ -28,7 +28,7 @@ Item {
     // Reparent topbar actions into the topbar area
     onTopbarActionsChanged: {
         if (topbarActions) {
-            topbarActions.parent = topbarActionsRow
+            Qt.callLater(function() { topbarActions.parent = topbarActionsRow })
         }
     }
 
@@ -90,12 +90,20 @@ Item {
                     }
                 }
 
+                Text {
+                    text: root.title
+                    font.pixelSize: 14
+                    font.bold: true
+                    color: Qt.rgba(0, 0, 0, 0.7)
+                    visible: root.title !== ""
+                }
+
                 Item { Layout.fillWidth: true }
 
                 RowLayout {
                     id: topbarActionsRow
                     spacing: 8
-                    visible: children.length > 0
+                    visible: root.topbarActions !== null
                 }
             }
         }

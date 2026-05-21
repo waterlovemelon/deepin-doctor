@@ -1,7 +1,7 @@
 // DTK ToolTip - tooltip with floating panel style
 // Pure QML reimplementation extending QtQuick.Controls ToolTip
-import QtQuick 2.15
-import QtQuick.Controls 2.15 as Controls
+import QtQuick 2.11
+import QtQuick.Controls 2.4 as Controls
 
 Controls.ToolTip {
     id: control

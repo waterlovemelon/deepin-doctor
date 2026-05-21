@@ -1,7 +1,7 @@
 // DTK Dialog - dialog container with title bar and button footer
 // Pure QML reimplementation of org.deepin.dtk/Dialog
-import QtQuick 2.15
-import QtQuick.Layouts 1.15
+import QtQuick 2.11
+import QtQuick.Layouts 1.11
 
 Item {
     id: dialog
@@ -71,8 +71,6 @@ Item {
                             height: 20
                             radius: 10
                             color: closeMouseArea.containsMouse ? Qt.rgba(0, 0, 0, 0.1) : "transparent"
-
-                            Behavior on color { ColorAnimation { duration: 120 } }
 
                             Text {
                                 anchors.centerIn: parent

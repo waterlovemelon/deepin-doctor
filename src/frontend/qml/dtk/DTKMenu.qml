@@ -1,7 +1,7 @@
 // DTK Menu - context menu with rounded styling
 // Pure QML reimplementation extending QtQuick.Controls Menu
-import QtQuick 2.15
-import QtQuick.Controls 2.15 as Controls
+import QtQuick 2.11
+import QtQuick.Controls 2.4 as Controls
 
 Controls.Menu {
     id: control

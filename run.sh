@@ -318,12 +318,22 @@ export_result() {
     print_info "请运行: ./run.sh gui"
 }
 
+# 默认流程：编译 + 启动前后端
+run_all() {
+    check_dependencies
+    build
+    start_daemon
+    start_gui
+}
+
 # 显示帮助
 show_help() {
     cat << EOF
 deepin-doctor 运行脚本
 
-用法: $0 <命令> [选项]
+用法: $0 [命令]
+
+无参数运行时自动执行: 编译 → 启动后端 → 启动前端
 
 命令:
   build       构建项目
@@ -363,9 +373,12 @@ EOF
 
 # 主函数
 main() {
-    local command="${1:-help}"
+    local command="${1:-run_all}"
 
     case "$command" in
+        run_all)
+            run_all
+            ;;
         build)
             check_dependencies
             build

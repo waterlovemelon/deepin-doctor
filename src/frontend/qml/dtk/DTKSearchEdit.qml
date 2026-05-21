@@ -1,7 +1,7 @@
 // DTK SearchEdit - search input with magnifier icon and clear button
 // Pure QML reimplementation of org.deepin.dtk/SearchEdit
-import QtQuick 2.15
-import QtQuick.Layouts 1.15
+import QtQuick 2.11
+import QtQuick.Layouts 1.11
 
 Item {
     id: control
@@ -90,8 +90,6 @@ Item {
                 height: 14
                 radius: 7
                 color: clearMouseArea.containsMouse ? Qt.rgba(0, 0, 0, 0.15) : "transparent"
-
-                Behavior on color { ColorAnimation { duration: 120 } }
 
                 Text {
                     anchors.centerIn: parent

@@ -1,6 +1,6 @@
-import QtQuick 2.15
-import QtQuick.Controls 2.15
-import QtQuick.Layouts 1.15
+import QtQuick 2.11
+import QtQuick.Controls 2.4
+import QtQuick.Layouts 1.11
 import QtQuick.Dialogs 1.3
 import "../components"
 import "../dtk"
@@ -13,6 +13,7 @@ PageLayout {
     property bool isReadyModule: currentModuleData && currentModuleData.status === "ready"
     property bool isPlannedModule: currentModuleData && currentModuleData.status === "planned"
     property bool isLogsModule: moduleId === "logs"
+    property bool isKeyringModule: moduleId === "keyring"
 
     // ── Standard module state ──
     property string currentTaskId: ""
@@ -24,12 +25,20 @@ PageLayout {
     property var detectResult: null
 
     // ── Log tools state ──
-    property string currentLogPanel: "export"
     property var logComponents: []
     property var selectedLogComponents: ({})
     property string debugLevel: "info"
     property bool isLogOperating: false
     property string logStatusMessage: ""
+
+    // ── Keyring state ──
+    property var keyringUserList: []
+    property string keyringSelectedUser: ""
+    property bool keyringCheckAllUsers: false
+    property bool isKeyringRunning: false
+    property string keyringRawOutput: ""
+    property var keyringResults: []
+    property string keyringMode: "check"
 
     property var allModules: [
         { id: "logs", name: "日志", icon: "📋", desc: "系统日志、内核日志、应用日志分析", status: "ready", color: "red",
@@ -56,6 +65,7 @@ PageLayout {
               { icon: "📂", label: "PATH", value: "有重复", cls: "warn", iconBg: "orange" },
               { icon: "🐚", label: "Shell", value: "zsh", cls: "ok", iconBg: "green" }
           ]},
+        { id: "keyring", name: "密钥环", icon: "🔑", desc: "白盒密钥环文件检测与修复", status: "ready", color: "cyan", summary: [] },
         { id: "listening", name: "监听任务", icon: "📡", desc: "端口监听、服务状态、进程关联检查", status: "planned", color: "purple", summary: [] },
         { id: "netenv", name: "网络环境检查", icon: "🛡", desc: "代理配置、防火墙规则、VPN 状态检测", status: "planned", color: "teal", summary: [] },
         { id: "disk", name: "磁盘健康", icon: "💾", desc: "SMART 信息、磁盘空间、文件系统检查", status: "planned", color: "indigo", summary: [] },
@@ -65,7 +75,7 @@ PageLayout {
     signal moduleSwitchRequested(string moduleId)
     signal exportRequested(var resultData)
 
-    title: currentModuleData ? currentModuleData.icon + " " + currentModuleData.name : ""
+    title: ""
 
     onModuleIdChanged: updateModuleData()
     Component.onCompleted: updateModuleData()
@@ -83,7 +93,13 @@ PageLayout {
         // Reset log tools state
         logStatusMessage = ""
         isLogOperating = false
-        currentLogPanel = "export"
+        logTabBar.currentIndex = 0
+
+        // Reset keyring state
+        keyringRawOutput = ""
+        keyringResults = []
+        isKeyringRunning = false
+        keyringMode = "check"
 
         for (var i = 0; i < allModules.length; i++) {
             if (allModules[i].id === moduleId) {
@@ -97,6 +113,14 @@ PageLayout {
     // Init log components when logs module is entered
     onIsLogsModuleChanged: {
         if (isLogsModule) initLogComponents()
+    }
+
+    // Init keyring users when keyring module is entered
+    onIsKeyringModuleChanged: {
+        if (isKeyringModule) {
+            keyringUserList = processHelper.availableUsers()
+            if (keyringUserList.length > 0) keyringSelectedUser = keyringUserList[0]
+        }
     }
 
     function initLogComponents() {
@@ -120,6 +144,94 @@ PageLayout {
         for (var i = 0; i < logComponents.length; i++)
             map[logComponents[i]] = state
         selectedLogComponents = map
+    }
+
+    // ── Keyring helpers ──
+    function keyringStatusLabel(s) {
+        switch (s) {
+        case "ok":      return qsTr("正常")
+        case "bad":     return qsTr("损坏")
+        case "missing": return qsTr("缺失")
+        case "error":   return qsTr("错误")
+        default:        return s || qsTr("未知")
+        }
+    }
+
+    function keyringStatusColor(s) {
+        switch (s) {
+        case "ok":      return mainWindow.successColor
+        case "bad":     return mainWindow.errorColor
+        case "missing": return mainWindow.warningColor
+        case "error":   return mainWindow.errorColor
+        default:        return mainWindow.mutedTextColor
+        }
+    }
+
+    function keyringStatusIcon(s) {
+        switch (s) {
+        case "ok":      return "✓"
+        case "bad":     return "✗"
+        case "missing": return "—"
+        case "error":   return "!"
+        default:        return "?"
+        }
+    }
+
+    function parseKeyringOutput(output) {
+        var lines = output.split("\n")
+        var parsed = []
+        var current = null
+
+        for (var i = 0; i < lines.length; i++) {
+            var line = lines[i].replace(/^\[wb-keyring-fix\]\s*/, "")
+
+            var m = line.match(/^(\S+):\s*whitebox=(\S+),\s*default=(\S+)/)
+            if (m) {
+                if (current) parsed.push(current)
+                current = { user: m[1], wbStatus: m[2], defaultStatus: m[3], detail: "" }
+                continue
+            }
+
+            if (current && line.indexOf(current.user + ":") === 0) {
+                var detailText = line.substring(current.user.length + 1).trim()
+                if (detailText && detailText.indexOf("whitebox=") < 0) {
+                    current.detail += (current.detail ? "\n" : "") + detailText
+                }
+            }
+        }
+        if (current) parsed.push(current)
+        return parsed
+    }
+
+    function runKeyringCheck() { runKeyring(false) }
+    function runKeyringFix() { runKeyring(true) }
+
+    function runKeyring(fixMode) {
+        if (isKeyringRunning) return
+        isKeyringRunning = true
+        keyringRawOutput = ""
+        keyringResults = []
+        keyringMode = fixMode ? "fix" : "check"
+
+        var script = processHelper.findTool("wb-keyring-fix.sh")
+        if (!script) {
+            keyringRawOutput = qsTr("错误：找不到 wb-keyring-fix.sh 脚本，请确认已安装 deepin-doctor")
+            isKeyringRunning = false
+            return
+        }
+
+        var args = []
+        if (fixMode) args.push("--fix")
+        if (keyringCheckAllUsers) {
+            args.push("--all-users")
+        } else if (keyringSelectedUser !== "") {
+            args.push("--user=" + keyringSelectedUser)
+        }
+
+        var output = processHelper.run(script, args, 60000)
+        keyringRawOutput = output
+        keyringResults = parseKeyringOutput(output)
+        isKeyringRunning = false
     }
 
     function getIconBgColor(iconBg) {
@@ -162,24 +274,24 @@ PageLayout {
 
     Connections {
         target: backend
-        function onCollectProgress(taskId, module, progress) {
-            if (taskId === currentTaskId) { collectProgress = progress; progressDetail = module }
+        onCollectProgress: {
+            if (arguments[0] === currentTaskId) { collectProgress = arguments[2]; progressDetail = arguments[1] }
         }
-        function onCollectFinished(taskId, result) {
-            if (taskId === currentTaskId) {
+        onCollectFinished: {
+            if (arguments[0] === currentTaskId) {
                 isCollecting = false; collectProgress = 1.0; progressDetail = ""
-                try { collectResult = JSON.parse(result) } catch (e) { console.error("Failed to parse collect result:", e) }
+                try { collectResult = JSON.parse(arguments[1]) } catch (e) { console.error("Failed to parse collect result:", e) }
             }
         }
     }
 
     Connections {
         target: logBackend
-        function onExportFinished(success, path) {
+        onExportFinished: {
             isLogOperating = false
-            logStatusMessage = success ? qsTr("导出成功：") + path : qsTr("导出失败")
+            logStatusMessage = arguments[0] ? qsTr("导出成功：") + arguments[1] : qsTr("导出失败")
         }
-        function onDebugModeChanged(component, enabled) {}
+        onDebugModeChanged: {}
     }
 
     // ── TopBar actions ──
@@ -190,7 +302,7 @@ PageLayout {
         // Standard module actions (collect/detect/export)
         RowLayout {
             spacing: 8
-            visible: isReadyModule && !isLogsModule
+            visible: isReadyModule && !isLogsModule && !isKeyringModule
 
             DTKButton {
                 text: qsTr("采集")
@@ -229,6 +341,25 @@ PageLayout {
                 onClicked: debugLogModal.visible = true
             }
         }
+
+        // Keyring actions
+        RowLayout {
+            spacing: 8
+            visible: isKeyringModule
+
+            DTKButton {
+                text: qsTr("检测")
+                highlighted: true
+                enabled: !isKeyringRunning
+                onClicked: root.runKeyringCheck()
+            }
+
+            DTKButton {
+                text: qsTr("修复")
+                enabled: !isKeyringRunning
+                onClicked: root.runKeyringFix()
+            }
+        }
     }
 
     // ── Sidebar ──
@@ -249,8 +380,8 @@ PageLayout {
             Layout.fillHeight: true
             activeModule: root.moduleId
             modules: root.allModules
-            onModuleClicked: function(clickedModuleId) {
-                if (clickedModuleId !== root.moduleId) root.moduleSwitchRequested(clickedModuleId)
+            onModuleClicked: {
+                if (arguments[0] !== root.moduleId) root.moduleSwitchRequested(arguments[0])
             }
         }
     }
@@ -260,7 +391,7 @@ PageLayout {
     // Standard module content (collect/detect/results)
     Flickable {
         anchors.fill: parent
-        visible: !isLogsModule
+        visible: !isLogsModule && !isKeyringModule
         contentWidth: width
         contentHeight: contentColumn.implicitHeight + 32
         clip: true
@@ -372,11 +503,13 @@ PageLayout {
                         Layout.fillWidth: true
                         spacing: 12
 
-                        TabBar {
+                        DTKTabBar {
                             id: resultTabBar
                             Layout.fillWidth: true
-                            TabButton { text: qsTr("采集结果"); enabled: collectResult !== null; width: implicitWidth }
-                            TabButton { text: qsTr("检测结果"); enabled: detectResult !== null; width: implicitWidth }
+                            model: [
+                                { label: qsTr("采集结果"), value: "collect" },
+                                { label: qsTr("检测结果"), value: "detect" }
+                            ]
                         }
 
                         Rectangle {
@@ -465,7 +598,7 @@ PageLayout {
         visible: isLogsModule
 
         // Tab bar
-        RowLayout {
+        DTKTabBar {
             id: logTabBar
             anchors.left: parent.left
             anchors.right: parent.right
@@ -473,38 +606,10 @@ PageLayout {
             anchors.leftMargin: 24
             anchors.rightMargin: 24
             anchors.topMargin: 16
-            spacing: 0
-
-            Repeater {
-                model: [
-                    { label: qsTr("导出日志"), value: "export" },
-                    { label: qsTr("调试模式"), value: "debug" }
-                ]
-
-                delegate: Rectangle {
-                    Layout.preferredWidth: logTabLabel.implicitWidth + 24
-                    Layout.preferredHeight: 32
-                    radius: 6
-                    color: root.currentLogPanel === modelData.value ? Qt.rgba(0, 0.4, 0.8, 0.1) : "transparent"
-
-                    Text {
-                        id: logTabLabel
-                        anchors.centerIn: parent
-                        text: modelData.label
-                        font.pixelSize: 13
-                        font.bold: root.currentLogPanel === modelData.value
-                        color: root.currentLogPanel === modelData.value ? DTKStyle.highlightColor : Qt.rgba(0, 0, 0, 0.5)
-                    }
-
-                    MouseArea {
-                        anchors.fill: parent
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: root.currentLogPanel = modelData.value
-                    }
-                }
-            }
-
-            Item { Layout.fillWidth: true }
+            model: [
+                { label: qsTr("导出日志"), value: "export" },
+                { label: qsTr("调试模式"), value: "debug" }
+            ]
         }
 
         // Export panel
@@ -514,7 +619,7 @@ PageLayout {
             anchors.right: parent.right
             anchors.top: logTabBar.bottom
             anchors.bottom: parent.bottom
-            visible: currentLogPanel === "export"
+            visible: logTabBar.currentValue === "export"
             contentWidth: width
             contentHeight: logExportColumn.implicitHeight + 48
             clip: true
@@ -608,7 +713,7 @@ PageLayout {
             anchors.right: parent.right
             anchors.top: logTabBar.bottom
             anchors.bottom: parent.bottom
-            visible: currentLogPanel === "debug"
+            visible: logTabBar.currentValue === "debug"
             contentWidth: width
             contentHeight: logDebugColumn.implicitHeight + 48
             clip: true
@@ -683,6 +788,397 @@ PageLayout {
                     }
                 }
             }
+        }
+    }
+
+    // ── Keyring content ──
+    Flickable {
+        anchors.fill: parent
+        visible: isKeyringModule
+        contentWidth: width
+        contentHeight: keyringContentColumn.implicitHeight + 48
+        clip: true
+        boundsBehavior: Flickable.StopAtBounds
+
+        ColumnLayout {
+            id: keyringContentColumn
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: parent.top
+            anchors.margins: 24
+            spacing: 16
+
+            // User Selection
+            DTKBoxPanel {
+                Layout.fillWidth: true
+                Layout.preferredHeight: keyringUserColumn.implicitHeight + 32
+
+                ColumnLayout {
+                    id: keyringUserColumn
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.top: parent.top
+                    anchors.margins: 16
+                    spacing: 12
+
+                    Text {
+                        text: qsTr("选择用户")
+                        font.pixelSize: 13
+                        font.bold: true
+                        color: mainWindow.textColor
+                    }
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 12
+
+                        DTKCheckBox {
+                            text: qsTr("所有用户")
+                            checked: root.keyringCheckAllUsers
+                            onToggled: root.keyringCheckAllUsers = checked
+                        }
+
+                        Item { Layout.fillWidth: true }
+
+                        DTKComboBox {
+                            Layout.preferredWidth: 200
+                            model: root.keyringUserList
+                            currentIndex: root.keyringUserList.indexOf(root.keyringSelectedUser)
+                            enabled: !root.keyringCheckAllUsers
+                            onCurrentTextChanged: {
+                                if (currentIndex >= 0) root.keyringSelectedUser = currentText
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Running indicator
+            DTKBoxPanel {
+                Layout.fillWidth: true
+                Layout.preferredHeight: keyringRunColumn.implicitHeight + 32
+                visible: isKeyringRunning
+
+                ColumnLayout {
+                    id: keyringRunColumn
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.top: parent.top
+                    anchors.margins: 16
+                    spacing: 8
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 10
+
+                        Item {
+                            Layout.preferredWidth: 20
+                            Layout.preferredHeight: 20
+                            Rectangle { anchors.fill: parent; radius: width / 2; color: "transparent"; border.color: DTKStyle.highlightColor; border.width: 2; opacity: 0.3 }
+                            Rectangle {
+                                anchors.fill: parent; radius: width / 2; color: "transparent"; border.color: DTKStyle.highlightColor; border.width: 2
+                                RotationAnimation on rotation { from: 0; to: 360; duration: 1000; loops: Animation.Infinite }
+                            }
+                        }
+
+                        Text {
+                            text: root.keyringMode === "fix" ? qsTr("正在修复密钥环...") : qsTr("正在检测密钥环...")
+                            font.bold: true
+                            font.pixelSize: 13
+                            color: mainWindow.textColor
+                        }
+                        Item { Layout.fillWidth: true }
+                    }
+                }
+            }
+
+            // Results
+            DTKBoxPanel {
+                Layout.fillWidth: true
+                Layout.preferredHeight: Math.max(200, keyringResultsColumn.implicitHeight + 32)
+                visible: keyringResults.length > 0
+
+                ColumnLayout {
+                    id: keyringResultsColumn
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.top: parent.top
+                    anchors.margins: 16
+                    spacing: 12
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 8
+
+                        Text {
+                            text: root.keyringMode === "fix" ? qsTr("修复结果") : qsTr("检测结果")
+                            font.pixelSize: 14
+                            font.bold: true
+                            color: mainWindow.textColor
+                        }
+
+                        Rectangle {
+                            Layout.preferredWidth: keyringCountLabel.implicitWidth + 16
+                            Layout.preferredHeight: keyringCountLabel.implicitHeight + 8
+                            radius: 10
+                            color: {
+                                var hasIssue = false
+                                for (var i = 0; i < keyringResults.length; i++) {
+                                    if (keyringResults[i].wbStatus !== "ok") { hasIssue = true; break }
+                                }
+                                return hasIssue ? mainWindow.warningColor : mainWindow.successColor
+                            }
+                            Text {
+                                id: keyringCountLabel
+                                anchors.centerIn: parent
+                                text: keyringResults.length + qsTr(" 个用户")
+                                color: "#ffffff"
+                                font.pixelSize: 11
+                                font.bold: true
+                            }
+                        }
+
+                        Item { Layout.fillWidth: true }
+                    }
+
+                    // Table header
+                    Rectangle {
+                        Layout.fillWidth: true
+                        height: 32
+                        color: Qt.rgba(0, 0, 0, 0.03)
+                        radius: 4
+
+                        RowLayout {
+                            anchors.fill: parent
+                            anchors.leftMargin: 12
+                            anchors.rightMargin: 12
+                            spacing: 8
+
+                            Text { text: qsTr("用户"); font.pixelSize: 12; font.bold: true; color: Qt.rgba(0, 0, 0, 0.5); Layout.preferredWidth: 120 }
+                            Text { text: qsTr("白盒密钥环"); font.pixelSize: 12; font.bold: true; color: Qt.rgba(0, 0, 0, 0.5); Layout.preferredWidth: 100 }
+                            Text { text: qsTr("默认密钥环"); font.pixelSize: 12; font.bold: true; color: Qt.rgba(0, 0, 0, 0.5); Layout.preferredWidth: 100 }
+                            Text { text: qsTr("详细信息"); font.pixelSize: 12; font.bold: true; color: Qt.rgba(0, 0, 0, 0.5); Layout.fillWidth: true }
+                        }
+                    }
+
+                    // Table rows
+                    Repeater {
+                        model: root.keyringResults
+
+                        delegate: Rectangle {
+                            Layout.fillWidth: true
+                            height: keyringRowContent.implicitHeight + 16
+                            color: index % 2 === 0 ? "transparent" : Qt.rgba(0, 0, 0, 0.02)
+
+                            RowLayout {
+                                id: keyringRowContent
+                                anchors.fill: parent
+                                anchors.leftMargin: 12
+                                anchors.rightMargin: 12
+                                spacing: 8
+
+                                Text {
+                                    text: modelData.user
+                                    font.pixelSize: 12
+                                    font.family: "monospace"
+                                    color: mainWindow.textColor
+                                    Layout.preferredWidth: 120
+                                    elide: Text.ElideRight
+                                }
+
+                                RowLayout {
+                                    Layout.preferredWidth: 100
+                                    spacing: 4
+
+                                    Rectangle {
+                                        Layout.preferredWidth: 20
+                                        Layout.preferredHeight: 20
+                                        radius: 10
+                                        color: Qt.rgba(
+                                            root.keyringStatusColor(modelData.wbStatus).r,
+                                            root.keyringStatusColor(modelData.wbStatus).g,
+                                            root.keyringStatusColor(modelData.wbStatus).b, 0.12)
+
+                                        Text {
+                                            anchors.centerIn: parent
+                                            text: root.keyringStatusIcon(modelData.wbStatus)
+                                            font.pixelSize: 11
+                                            font.bold: true
+                                            color: root.keyringStatusColor(modelData.wbStatus)
+                                        }
+                                    }
+
+                                    Text {
+                                        text: root.keyringStatusLabel(modelData.wbStatus)
+                                        font.pixelSize: 12
+                                        color: root.keyringStatusColor(modelData.wbStatus)
+                                    }
+                                }
+
+                                RowLayout {
+                                    Layout.preferredWidth: 100
+                                    spacing: 4
+
+                                    Rectangle {
+                                        Layout.preferredWidth: 20
+                                        Layout.preferredHeight: 20
+                                        radius: 10
+                                        color: Qt.rgba(
+                                            root.keyringStatusColor(modelData.defaultStatus).r,
+                                            root.keyringStatusColor(modelData.defaultStatus).g,
+                                            root.keyringStatusColor(modelData.defaultStatus).b, 0.12)
+
+                                        Text {
+                                            anchors.centerIn: parent
+                                            text: root.keyringStatusIcon(modelData.defaultStatus)
+                                            font.pixelSize: 11
+                                            font.bold: true
+                                            color: root.keyringStatusColor(modelData.defaultStatus)
+                                        }
+                                    }
+
+                                    Text {
+                                        text: root.keyringStatusLabel(modelData.defaultStatus)
+                                        font.pixelSize: 12
+                                        color: root.keyringStatusColor(modelData.defaultStatus)
+                                    }
+                                }
+
+                                Text {
+                                    text: modelData.detail || "—"
+                                    font.pixelSize: 11
+                                    color: Qt.rgba(0, 0, 0, 0.4)
+                                    Layout.fillWidth: true
+                                    elide: Text.ElideRight
+                                    wrapMode: Text.WordWrap
+                                    maximumLineCount: 2
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Raw output
+            DTKBoxPanel {
+                Layout.fillWidth: true
+                Layout.preferredHeight: keyringRawColumn.implicitHeight + 32
+                visible: keyringRawOutput !== ""
+
+                ColumnLayout {
+                    id: keyringRawColumn
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.top: parent.top
+                    anchors.margins: 16
+                    spacing: 8
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 8
+
+                        Text {
+                            text: qsTr("原始输出")
+                            font.pixelSize: 13
+                            font.bold: true
+                            color: mainWindow.textColor
+                        }
+
+                        Item { Layout.fillWidth: true }
+
+                        Text {
+                            text: qsTr("复制")
+                            font.pixelSize: 12
+                            color: DTKStyle.highlightColor
+                            MouseArea {
+                                anchors.fill: parent
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: {
+                                    keyringClipboardInput.text = root.keyringRawOutput
+                                    keyringClipboardInput.selectAll()
+                                    keyringClipboardInput.copy()
+                                    keyringCopyToast.visible = true
+                                    keyringCopyToastTimer.restart()
+                                }
+                            }
+                        }
+
+                        Text {
+                            id: keyringCopyToast
+                            text: qsTr("已复制")
+                            font.pixelSize: 11
+                            color: mainWindow.successColor
+                            visible: false
+                            Timer { id: keyringCopyToastTimer; interval: 1500; onTriggered: keyringCopyToast.visible = false }
+                        }
+                    }
+
+                    TextInput {
+                        id: keyringClipboardInput
+                        visible: false
+                    }
+
+                    Rectangle {
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: Math.min(300, keyringRawText.implicitHeight + 16)
+                        color: Qt.rgba(0, 0, 0, 0.03)
+                        radius: 4
+
+                        Flickable {
+                            anchors.fill: parent
+                            anchors.margins: 8
+                            contentWidth: width
+                            contentHeight: keyringRawText.implicitHeight
+                            clip: true
+
+                            Text {
+                                id: keyringRawText
+                                width: parent.width
+                                text: root.keyringRawOutput
+                                font.pixelSize: 11
+                                font.family: "monospace"
+                                color: Qt.rgba(0, 0, 0, 0.6)
+                                wrapMode: Text.WordWrap
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Empty state
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 200
+                color: "transparent"
+                visible: keyringResults.length === 0 && !isKeyringRunning && keyringRawOutput === ""
+
+                ColumnLayout {
+                    anchors.centerIn: parent
+                    spacing: 12
+
+                    Text {
+                        text: "🔑"
+                        font.pixelSize: 48
+                        Layout.alignment: Qt.AlignHCenter
+                    }
+
+                    Text {
+                        text: qsTr('点击上方"检测"开始检查密钥环状态')
+                        font.pixelSize: 14
+                        color: Qt.rgba(0, 0, 0, 0.4)
+                        Layout.alignment: Qt.AlignHCenter
+                    }
+
+                    Text {
+                        text: qsTr("支持单用户检测或批量扫描所有用户")
+                        font.pixelSize: 12
+                        color: Qt.rgba(0, 0, 0, 0.25)
+                        Layout.alignment: Qt.AlignHCenter
+                    }
+                }
+            }
+
+            Item { Layout.fillHeight: true; Layout.preferredHeight: 16 }
         }
     }
 

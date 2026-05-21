@@ -1,6 +1,6 @@
 // DTK CheckBox - pure QML reimplementation of org.deepin.dtk CheckBox
-import QtQuick 2.15
-import QtQuick.Layouts 1.15
+import QtQuick 2.11
+import QtQuick.Layouts 1.11
 
 Item {
     id: control

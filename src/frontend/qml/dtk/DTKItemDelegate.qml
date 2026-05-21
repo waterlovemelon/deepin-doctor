@@ -1,7 +1,7 @@
 // DTK ItemDelegate - list item with highlight/hover states
 // Pure QML reimplementation of org.deepin.dtk/ItemDelegate
-import QtQuick 2.15
-import QtQuick.Layouts 1.15
+import QtQuick 2.11
+import QtQuick.Layouts 1.11
 
 Item {
     id: delegate
@@ -31,8 +31,6 @@ Item {
                : delegate.cascade ? DTKStyle.itemDelegate.cascadeColor
                : delegate.hovered ? DTKStyle.itemDelegate.normalColor
                : "transparent"
-
-        Behavior on color { ColorAnimation { duration: 120 } }
     }
 
     // Default content layout
