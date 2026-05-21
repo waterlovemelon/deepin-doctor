@@ -10,10 +10,12 @@ Item {
     property string text: ""
     property string iconText: ""
     property bool checked: false
+    property bool cascade: false
     property bool hovered: mouseArea.containsMouse
     property color checkedTextColor: DTKStyle.itemDelegate.checkedText
     property color normalTextColor: DTKStyle.itemDelegate.hoveredText
     property int radius: DTKStyle.control.radius
+    property int checkIndicatorIconSize: DTKStyle.itemDelegate.checkIndicatorIconSize
     property alias contentItem: contentLoader.sourceComponent
 
     signal clicked()
@@ -21,17 +23,16 @@ Item {
     implicitWidth: DTKStyle.itemDelegate.width
     implicitHeight: DTKStyle.itemDelegate.height
 
-    // Background: highlight when checked, subtle on hover
+    // Background: highlight when checked, cascade on hover, subtle default
     Rectangle {
         anchors.fill: parent
         radius: delegate.radius
         color: delegate.checked ? DTKStyle.highlightPanel.background
+               : delegate.cascade ? DTKStyle.itemDelegate.cascadeColor
                : delegate.hovered ? DTKStyle.itemDelegate.normalColor
                : "transparent"
 
-        Behavior on color {
-            ColorAnimation { duration: 120 }
-        }
+        Behavior on color { ColorAnimation { duration: 120 } }
     }
 
     // Default content layout

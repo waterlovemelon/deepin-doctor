@@ -23,7 +23,24 @@ Item {
     implicitWidth: Math.max(DTKStyle.button.width, label.implicitWidth + DTKStyle.button.hPadding * 2)
     implicitHeight: DTKStyle.button.height
 
-    // Background with gradient
+    // Drop shadow (behind background)
+    Rectangle {
+        anchors.fill: bg
+        anchors.margins: -1
+        radius: bg.radius + 1
+        color: "transparent"
+        border.color: {
+            if (checked) return DTKStyle.checkedButton.dropShadow
+            if (highlighted) return DTKStyle.highlightedButton.dropShadow
+            return button.hovered ? DTKStyle.button.dropShadowHovered : DTKStyle.button.dropShadow
+        }
+        border.width: 1
+        visible: !button.pressed
+
+        Behavior on border.color { ColorAnimation { duration: 120 } }
+    }
+
+    // Background
     Rectangle {
         id: bg
         anchors.fill: parent
@@ -31,7 +48,7 @@ Item {
         border.width: 1
         border.color: {
             if (checked || highlighted) return DTKStyle.highlightedButton.border
-            return button.hovered ? Qt.rgba(0, 0, 0, 0.2) : DTKStyle.button.outsideBorder
+            return button.hovered ? DTKStyle.button.outsideBorderHovered : DTKStyle.button.outsideBorder
         }
         color: {
             if (checked) {
@@ -55,16 +72,16 @@ Item {
             anchors.right: parent.right
             anchors.top: parent.top
             height: 1
-            color: Qt.rgba(1, 1, 1, 0.2)
-            visible: !button.pressed && !checked && !highlighted
+            color: button.pressed ? DTKStyle.button.insideBorderPressed
+                   : button.hovered ? DTKStyle.button.insideBorderHovered
+                   : DTKStyle.button.insideBorder
+            visible: !checked && !highlighted
+
+            Behavior on color { ColorAnimation { duration: 120 } }
         }
 
-        Behavior on color {
-            ColorAnimation { duration: 120 }
-        }
-        Behavior on border.color {
-            ColorAnimation { duration: 120 }
-        }
+        Behavior on color { ColorAnimation { duration: 120 } }
+        Behavior on border.color { ColorAnimation { duration: 120 } }
     }
 
     Text {
